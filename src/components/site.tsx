@@ -91,6 +91,35 @@ const devContacts = [
   },
 ] as const;
 
+export function DeveloperSection() {
+  return (
+    <section className="mx-auto max-w-6xl px-4 pt-14">
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-card md:p-6">
+        <h2 className="font-display text-lg font-bold text-primary">تطوير وبرمجة المنصة</h2>
+        <p className="mt-1 text-sm text-muted-foreground">للتواصل المباشر مع فريق تطوير المنصة عبر الهاتف أو واتساب أو تلغرام.</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {devContacts.map(({ key, label, value, href, badge, Icon, external }) => (
+            <a
+              key={key}
+              href={href}
+              {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              className="flex items-center gap-3 rounded-xl border border-border bg-secondary p-3 transition hover:-translate-y-0.5 hover:border-gold"
+            >
+              <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-lg", badge)}>
+                <Icon size={20} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">{label}</span>
+                <span dir="ltr" className="block truncate text-right text-xs text-muted-foreground">{value}</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function Footer() {
   return (
     <footer className="mt-16 bg-deep text-deep-foreground">
@@ -111,30 +140,6 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pt-10">
-        <div className="rounded-2xl border border-deep-foreground/15 bg-deep-foreground/5 p-5 md:p-6">
-          <h2 className="font-display text-lg font-bold text-gold">تطوير وبرمجة المنصة</h2>
-          <p className="mt-1 text-sm opacity-75">للتواصل المباشر مع فريق تطوير المنصة عبر الهاتف أو واتساب أو تلغرام.</p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {devContacts.map(({ key, label, value, href, badge, Icon, external }) => (
-              <a
-                key={key}
-                href={href}
-                {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                className="flex items-center gap-3 rounded-xl border border-deep-foreground/15 bg-deep p-3 transition hover:-translate-y-0.5 hover:border-gold"
-              >
-                <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-lg", badge)}>
-                  <Icon size={20} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-bold">{label}</span>
-                  <span dir="ltr" className="block truncate text-right text-xs opacity-75">{value}</span>
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-      </div>
 
       <div className="mx-auto max-w-6xl px-4 py-6">
         <p className="border-t border-deep-foreground/10 pt-5 text-center text-xs opacity-70">

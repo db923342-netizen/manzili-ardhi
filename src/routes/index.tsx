@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ShieldCheck, Search, FileText, Handshake } from "lucide-react";
 import hero from "@/assets/hero.jpg";
 import { properties, requests } from "@/lib/data";
-import { PropertyCard, RequestCard, WilayaCommune, TypeSelect, btnGold } from "@/components/site";
+import { PropertyCard, RequestCard, WilayaCommune, TypeSelect, btnGold, DeveloperSection } from "@/components/site";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -72,6 +72,7 @@ function Index() {
           {requests.map((r) => <RequestCard key={r.id} r={r} />)}
         </div>
       </section>
+      <DeveloperSection />
     </>
   );
 }
