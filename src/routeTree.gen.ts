@@ -10,33 +10,180 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as FeesRouteImport } from './routes/fees'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PublishRouteImport } from './routes/publish'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as RequestNewRouteImport } from './routes/request-new'
+import { Route as RequestsRouteImport } from './routes/requests'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as PropertyIdRouteImport } from './routes/property.$id'
+import { Route as RequestIdRouteImport } from './routes/request.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeesRoute = FeesRouteImport.update({
+  id: '/fees',
+  path: '/fees',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublishRoute = PublishRouteImport.update({
+  id: '/publish',
+  path: '/publish',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestNewRoute = RequestNewRouteImport.update({
+  id: '/request-new',
+  path: '/request-new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestsRoute = RequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PropertyIdRoute = PropertyIdRouteImport.update({
+  id: '/property/$id',
+  path: '/property/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestIdRoute = RequestIdRouteImport.update({
+  id: '/request/$id',
+  path: '/request/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/fees': typeof FeesRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
+  '/publish': typeof PublishRoute
+  '/register': typeof RegisterRoute
+  '/request-new': typeof RequestNewRoute
+  '/requests': typeof RequestsRoute
+  '/search': typeof SearchRoute
+  '/property/$id': typeof PropertyIdRoute
+  '/request/$id': typeof RequestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/fees': typeof FeesRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
+  '/publish': typeof PublishRoute
+  '/register': typeof RegisterRoute
+  '/request-new': typeof RequestNewRoute
+  '/requests': typeof RequestsRoute
+  '/search': typeof SearchRoute
+  '/property/$id': typeof PropertyIdRoute
+  '/request/$id': typeof RequestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/fees': typeof FeesRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
+  '/publish': typeof PublishRoute
+  '/register': typeof RegisterRoute
+  '/request-new': typeof RequestNewRoute
+  '/requests': typeof RequestsRoute
+  '/search': typeof SearchRoute
+  '/property/$id': typeof PropertyIdRoute
+  '/request/$id': typeof RequestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/fees'
+    | '/login'
+    | '/profile'
+    | '/publish'
+    | '/register'
+    | '/request-new'
+    | '/requests'
+    | '/search'
+    | '/property/$id'
+    | '/request/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/fees'
+    | '/login'
+    | '/profile'
+    | '/publish'
+    | '/register'
+    | '/request-new'
+    | '/requests'
+    | '/search'
+    | '/property/$id'
+    | '/request/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/fees'
+    | '/login'
+    | '/profile'
+    | '/publish'
+    | '/register'
+    | '/request-new'
+    | '/requests'
+    | '/search'
+    | '/property/$id'
+    | '/request/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  FeesRoute: typeof FeesRoute
+  LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
+  PublishRoute: typeof PublishRoute
+  RegisterRoute: typeof RegisterRoute
+  RequestNewRoute: typeof RequestNewRoute
+  RequestsRoute: typeof RequestsRoute
+  SearchRoute: typeof SearchRoute
+  PropertyIdRoute: typeof PropertyIdRoute
+  RequestIdRoute: typeof RequestIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +195,99 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fees': {
+      id: '/fees'
+      path: '/fees'
+      fullPath: '/fees'
+      preLoaderRoute: typeof FeesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/publish': {
+      id: '/publish'
+      path: '/publish'
+      fullPath: '/publish'
+      preLoaderRoute: typeof PublishRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-new': {
+      id: '/request-new'
+      path: '/request-new'
+      fullPath: '/request-new'
+      preLoaderRoute: typeof RequestNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/requests': {
+      id: '/requests'
+      path: '/requests'
+      fullPath: '/requests'
+      preLoaderRoute: typeof RequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/property/$id': {
+      id: '/property/$id'
+      path: '/property/$id'
+      fullPath: '/property/$id'
+      preLoaderRoute: typeof PropertyIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/$id': {
+      id: '/request/$id'
+      path: '/request/$id'
+      fullPath: '/request/$id'
+      preLoaderRoute: typeof RequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  FeesRoute: FeesRoute,
+  LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
+  PublishRoute: PublishRoute,
+  RegisterRoute: RegisterRoute,
+  RequestNewRoute: RequestNewRoute,
+  RequestsRoute: RequestsRoute,
+  SearchRoute: SearchRoute,
+  PropertyIdRoute: PropertyIdRoute,
+  RequestIdRoute: RequestIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
