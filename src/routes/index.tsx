@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ShieldCheck, Search, FileText, Handshake } from "lucide-react";
+import { ShieldCheck, Search, FileText, Handshake, Clock } from "lucide-react";
 import hero from "@/assets/hero.jpg";
 import { properties, requests } from "@/lib/data";
 import { PropertyCard, RequestCard, WilayaCommune, TypeSelect, btnGold, DeveloperSection } from "@/components/site";
@@ -12,6 +12,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "ابحث عن شقق وفيلات ومحلات للإيجار في جميع ولايات الجزائر، أو انشر طلب بحثك." },
       { property: "og:title", content: "منزلي وأرضي | إيجار العقارات في الجزائر" },
       { property: "og:description", content: "ابحث عن عقار للإيجار حسب الولاية والبلدية ونوع العقار." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,
@@ -38,11 +40,12 @@ function Index() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[
             { i: Search, t: "ابحث أو انشر", d: "انشر عقارك للإيجار أو طلب بحث مجانًا." },
             { i: ShieldCheck, t: "خصوصية تامة", d: "أرقام الهواتف مخفية حتى إتمام الصفقة." },
             { i: Handshake, t: "صفقة بموافقة المدير", d: "يراجع المدير كل صفقة قبل كشف بيانات التواصل." },
+            { i: Clock, t: "كراء شقق مؤقتة", d: "لمدة 24 ساعة فقط، بأسعار تنافسية." },
           ].map(({ i: I, t, d }) => (
             <div key={t} className="rounded-xl border border-border bg-card p-5">
               <I className="text-gold" />
