@@ -1,24 +1,77 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { ShieldCheck, Search, FileText, Handshake } from "lucide-react";
+import hero from "@/assets/hero.jpg";
+import { properties, requests } from "@/lib/data";
+import { PropertyCard, RequestCard, WilayaCommune, TypeSelect, btnGold } from "@/components/site";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "منزلي وأرضي | إيجار العقارات في الجزائر" },
+      { name: "description", content: "ابحث عن شقق وفيلات ومحلات للإيجار في جميع ولايات الجزائر، أو انشر طلب بحثك." },
+      { property: "og:title", content: "منزلي وأرضي | إيجار العقارات في الجزائر" },
+      { property: "og:description", content: "ابحث عن عقار للإيجار حسب الولاية والبلدية ونوع العقار." },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const [wilaya, setWilaya] = useState("");
+  const navigate = useNavigate();
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <>
+      <section className="relative">
+        <img src={hero} alt="فيلا جزائرية مطلة على البحر" width={1600} height={912} className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-hero" />
+        <div className="relative mx-auto max-w-6xl px-4 pb-12 pt-20 text-deep-foreground md:pt-32">
+          <p className="text-gold font-bold">منصة الإيجار العقاري الأولى في الجزائر</p>
+          <h1 className="mt-3 max-w-2xl text-3xl font-extrabold leading-tight md:text-5xl">بيتك القادم في الجزائر، بأمان وشفافية</h1>
+          <p className="mt-4 max-w-xl opacity-85">من العاصمة إلى ورقلة، تصفّح آلاف العقارات للإيجار أو انشر طلبك ودع الملاك يجدونك.</p>
+          <form onSubmit={(e) => { e.preventDefault(); navigate({ to: "/search" }); }} className="mt-8 grid gap-3 rounded-2xl bg-card p-4 text-card-foreground shadow-card md:grid-cols-4 md:items-end">
+            <WilayaCommune wilaya={wilaya} setWilaya={setWilaya} />
+            <TypeSelect />
+            <button className={`${btnGold} flex items-center justify-center gap-2`}><Search size={18} />بحث</button>
+          </form>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-12">
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            { i: Search, t: "ابحث أو انشر", d: "انشر عقارك للإيجار أو طلب بحث مجانًا." },
+            { i: ShieldCheck, t: "خصوصية تامة", d: "أرقام الهواتف مخفية حتى إتمام الصفقة." },
+            { i: Handshake, t: "صفقة بموافقة المدير", d: "يراجع المدير كل صفقة قبل كشف بيانات التواصل." },
+          ].map(({ i: I, t, d }) => (
+            <div key={t} className="rounded-xl border border-border bg-card p-5">
+              <I className="text-gold" />
+              <h3 className="mt-3 font-bold">{t}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4">
+        <div className="mb-6 flex items-end justify-between">
+          <h2 className="text-2xl font-bold">أحدث العقارات</h2>
+          <Link to="/search" className="text-sm font-bold text-primary">عرض الكل ←</Link>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {properties.slice(0, 3).map((p) => <PropertyCard key={p.id} p={p} />)}
+        </div>
+      </section>
+
+      <section className="mx-auto mt-14 max-w-6xl px-4">
+        <div className="mb-6 flex items-end justify-between">
+          <h2 className="text-2xl font-bold">طلبات البحث</h2>
+          <Link to="/request-new" className="flex items-center gap-1 text-sm font-bold text-primary"><FileText size={16} />انشر طلبك</Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {requests.map((r) => <RequestCard key={r.id} r={r} />)}
+        </div>
+      </section>
+    </>
   );
 }
