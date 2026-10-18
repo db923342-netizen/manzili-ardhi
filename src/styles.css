@@ -53,6 +53,8 @@
   --color-chart-5: var(--chart-5);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
+  --color-telegram: var(--telegram);
+  --color-telegram-foreground: var(--telegram-foreground);
   --color-deep: var(--deep);
   --color-deep-foreground: var(--deep-foreground);
   --font-sans: "Tajawal", sans-serif;
@@ -86,6 +88,8 @@
   --accent-foreground: oklch(0.22 0.04 160);
   --gold: oklch(0.78 0.13 80);
   --gold-soft: oklch(0.94 0.05 85);
+  --telegram: oklch(0.62 0.14 250);
+  --telegram-foreground: oklch(0.99 0 0);
   --deep: oklch(0.25 0.06 162);
   --deep-foreground: oklch(0.97 0.01 95);
   --gradient-hero: linear-gradient(180deg, color-mix(in oklab, var(--deep) 30%, transparent), color-mix(in oklab, var(--deep) 92%, transparent));
