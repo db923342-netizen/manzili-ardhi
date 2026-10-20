@@ -23,6 +23,8 @@ export const Route = createFileRoute("/")({
 function Index() {
   const [wilaya, setWilaya] = useState("");
   const navigate = useNavigate();
+  const { data: properties } = useQuery(propertiesQuery);
+  const { data: requests } = useQuery(requestsQuery);
   return (
     <>
       <section className="relative">
