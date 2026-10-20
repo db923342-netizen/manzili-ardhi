@@ -112,7 +112,6 @@ export type Database = {
       properties: {
         Row: {
           area_m2: number | null
-          contact_phone: string | null
           created_at: string
           description: string | null
           duration_months: number | null
@@ -126,7 +125,6 @@ export type Database = {
         }
         Insert: {
           area_m2?: number | null
-          contact_phone?: string | null
           created_at?: string
           description?: string | null
           duration_months?: number | null
@@ -140,7 +138,6 @@ export type Database = {
         }
         Update: {
           area_m2?: number | null
-          contact_phone?: string | null
           created_at?: string
           description?: string | null
           duration_months?: number | null
