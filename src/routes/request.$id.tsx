@@ -19,7 +19,7 @@ export const Route = createFileRoute("/request/$id")({
     ],
   }),
   notFoundComponent: () => <p className="py-24 text-center">الطلب غير موجود. <Link to="/requests" className="text-primary">العودة</Link></p>,
-  errorComponent: ({ error }) => <p role="alert" className="py-24 text-center text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p role="alert" className="py-24 text-center text-destructive">{error instanceof Error ? error.message : "حدث خطأ"}</p>,
   component: Detail,
 });
 

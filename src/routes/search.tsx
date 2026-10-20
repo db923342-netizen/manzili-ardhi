@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { propertyTypes, wilayas, type Property } from "@/lib/data";
-import { supabase } from "@/integrations/supabase/client";
-import hero from "@/assets/hero.jpg";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { propertiesQuery } from "@/lib/listings";
+import { propertyTypes, wilayas } from "@/lib/data";
 import { PageTitle, PropertyCard, Field, inputCls } from "@/components/site";
 
 export const Route = createFileRoute("/search")({
@@ -21,60 +21,9 @@ function SearchPage() {
   const [w, setW] = useState("");
   const [c, setC] = useState("");
   const [t, setT] = useState("");
-  const [list, setList] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProperties() {
-      setLoading(true);
-      setError("");
-
-      const { data, error: queryError } = await supabase
-        .from("public_properties")
-        .select("*");
-
-      if (!active) return;
-
-      if (queryError) {
-        console.error("Supabase properties error:", queryError.message);
-        setError("تعذر تحميل العقارات من قاعدة البيانات. يرجى المحاولة لاحقًا.");
-        setList([]);
-        setLoading(false);
-        return;
-      }
-
-      const mapped: Property[] = (data ?? []).map((row) => {
-        const item = row as Record<string, unknown>;
-
-        return {
-          id: String(item.id ?? ""),
-          title: String(item.title ?? item.property_type ?? "عقار للإيجار"),
-          type: String(item.property_type ?? ""),
-          wilaya: String(item.wilaya ?? ""),
-          commune: String(item.municipality ?? ""),
-          price: Number(item.monthly_rent ?? 0),
-          rooms: Number(item.rooms ?? 0),
-          area: Number(item.area_m2 ?? 0),
-          description: String(item.description ?? ""),
-          owner: "",
-          status: String(item.status ?? ""),
-          image: hero,
-        };
-      });
-
-      setList(mapped);
-      setLoading(false);
-    }
-
-    loadProperties();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { data, isLoading: loading, isError } = useQuery(propertiesQuery);
+  const list = data ?? [];
+  const error = isError ? "تعذر تحميل العقارات من قاعدة البيانات. يرجى المحاولة لاحقًا." : "";
 
   const filtered = list.filter(
     (p) =>

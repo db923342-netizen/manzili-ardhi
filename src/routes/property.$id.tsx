@@ -20,7 +20,7 @@ export const Route = createFileRoute("/property/$id")({
     ],
   }),
   notFoundComponent: () => <p className="py-24 text-center">العقار غير موجود. <Link to="/search" className="text-primary">العودة</Link></p>,
-  errorComponent: ({ error }) => <p role="alert" className="py-24 text-center text-destructive">{error.message}</p>,
+  errorComponent: ({ error }) => <p role="alert" className="py-24 text-center text-destructive">{error instanceof Error ? error.message : "حدث خطأ"}</p>,
   component: Detail,
 });
 
