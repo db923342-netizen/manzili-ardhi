@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { properties, requests, formatDA } from "@/lib/data";
+import { createFileRoute } from "@tanstack/react-router";
+
 import { Lock } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
@@ -26,22 +26,16 @@ function Profile() {
         </div>
       </div>
       <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-        {[["إعلاناتي", 2], ["طلباتي", 1], ["صفقاتي", 1]].map(([t, n]) => (
+        {[["إعلاناتي", 0], ["طلباتي", 0], ["صفقاتي", 0]].map(([t, n]) => (
           <div key={t} className="rounded-xl border border-border bg-card p-4"><p className="font-display text-2xl font-bold text-primary">{n}</p><p className="text-sm text-muted-foreground">{t}</p></div>
         ))}
       </div>
       <h2 className="mt-8 text-lg font-bold">إعلاناتي</h2>
       <div className="mt-3 space-y-2">
-        {properties.slice(0, 2).map((p) => (
-          <Link key={p.id} to="/property/$id" params={{ id: p.id }} className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
-            <span>{p.title}</span><span className="text-sm text-muted-foreground">{formatDA(p.price)} • {p.status}</span>
-          </Link>
-        ))}
+        <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">لا توجد إعلانات بعد.</p>
       </div>
       <h2 className="mt-8 text-lg font-bold">طلباتي</h2>
-      <Link to="/request/$id" params={{ id: requests[0]!.id }} className="mt-3 flex justify-between rounded-xl border border-border bg-card p-4">
-        <span>{requests[0]!.title}</span><span className="text-sm text-muted-foreground">{requests[0]!.wilaya}</span>
-      </Link>
+      <p className="mt-3 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">لا توجد طلبات بعد.</p>
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ShieldCheck, Search, FileText, Handshake, Clock } from "lucide-react";
 import hero from "@/assets/hero.jpg";
-import { properties, requests } from "@/lib/data";
+import { useQuery } from "@tanstack/react-query";
+import { propertiesQuery, requestsQuery } from "@/lib/listings";
 import { PropertyCard, RequestCard, WilayaCommune, TypeSelect, btnGold, DeveloperSection } from "@/components/site";
 
 export const Route = createFileRoute("/")({
@@ -62,7 +63,8 @@ function Index() {
           <Link to="/search" className="text-sm font-bold text-primary">عرض الكل ←</Link>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {properties.slice(0, 3).map((p) => <PropertyCard key={p.id} p={p} />)}
+          {(properties ?? []).slice(0, 3).map((p) => <PropertyCard key={p.id} p={p} />)}
+          {properties && !properties.length && <p className="col-span-full py-8 text-center text-muted-foreground">لا توجد عقارات منشورة بعد.</p>}
         </div>
       </section>
 
@@ -72,7 +74,8 @@ function Index() {
           <Link to="/request-new" className="flex items-center gap-1 text-sm font-bold text-primary"><FileText size={16} />انشر طلبك</Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {requests.map((r) => <RequestCard key={r.id} r={r} />)}
+          {(requests ?? []).slice(0, 4).map((r) => <RequestCard key={r.id} r={r} />)}
+          {requests && !requests.length && <p className="col-span-full py-8 text-center text-muted-foreground">لا توجد طلبات بحث منشورة بعد.</p>}
         </div>
       </section>
       <DeveloperSection />

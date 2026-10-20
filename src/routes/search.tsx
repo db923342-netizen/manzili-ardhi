@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { properties as demoProperties, propertyTypes, wilayas, type Property } from "@/lib/data";
+import { propertyTypes, wilayas, type Property } from "@/lib/data";
 import { supabase } from "@/integrations/supabase/client";
+import hero from "@/assets/hero.jpg";
 import { PageTitle, PropertyCard, Field, inputCls } from "@/components/site";
 
 export const Route = createFileRoute("/search")({
@@ -60,7 +61,7 @@ function SearchPage() {
           description: String(item.description ?? ""),
           owner: "",
           status: String(item.status ?? ""),
-          image: demoProperties[0]?.image ?? "",
+          image: hero,
         };
       });
 

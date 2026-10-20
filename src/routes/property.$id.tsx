@@ -1,11 +1,12 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { MapPin, BedDouble, Ruler, User } from "lucide-react";
-import { properties, formatDA, fees } from "@/lib/data";
+import { formatDA, fees } from "@/lib/data";
+import { propertiesQuery } from "@/lib/listings";
 import { HiddenPhone, btnPrimary } from "@/components/site";
 
 export const Route = createFileRoute("/property/$id")({
-  loader: ({ params }) => {
-    const p = properties.find((x) => x.id === params.id);
+  loader: async ({ params, context }) => {
+    const p = (await context.queryClient.ensureQueryData(propertiesQuery)).find((x) => x.id === params.id);
     if (!p) throw notFound();
     return p;
   },
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/property/$id")({
     ],
   }),
   notFoundComponent: () => <p className="py-24 text-center">العقار غير موجود. <Link to="/search" className="text-primary">العودة</Link></p>,
+  errorComponent: ({ error }) => <p role="alert" className="py-24 text-center text-destructive">{error.message}</p>,
   component: Detail,
 });
 
