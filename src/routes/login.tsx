@@ -5,7 +5,7 @@ import { arabicAuthError, safeRedirect } from "@/lib/auth";
 import { Field, inputCls, btnPrimary } from "@/components/site";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (s: Record<string, unknown>): { redirect?: string; registered?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { redirect?: string | undefined; registered?: string | undefined } => ({
     redirect: typeof s["redirect"] === "string" ? (s["redirect"] as string) : undefined,
     registered: s["registered"] === "1" || s["registered"] === 1 ? "1" : undefined,
   }),

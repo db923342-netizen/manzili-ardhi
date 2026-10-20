@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/profile")({
       { property: "og:description", content: "حسابك على منزلي وأرضي." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>): { denied?: string } => ({ denied: s["denied"] === "1" || s["denied"] === 1 ? "1" : undefined }),
+  validateSearch: (s: Record<string, unknown>): { denied?: string | undefined } => ({ denied: s["denied"] === "1" || s["denied"] === 1 ? "1" : undefined }),
   component: Profile,
 });
 
