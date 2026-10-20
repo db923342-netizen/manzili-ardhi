@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import hero from "@/assets/hero.jpg";
 import type { Property, RentalRequest } from "@/lib/data";
 
+type Row = { id?: unknown; property_type?: unknown; wilaya?: unknown; municipality?: unknown; monthly_rent?: unknown; rooms?: unknown; area_m2?: unknown; description?: unknown; status?: unknown; budget?: unknown; specifications?: unknown; created_at?: unknown };
+
 // Real listings only — read from the public (phone-free) database views.
 const typeLabels: Record<string, string> = {
   housing: "سكن", apartment: "شقة", villa: "فيلا", house: "منزل", land: "أرض",
@@ -12,7 +14,7 @@ const label = (t: unknown) => typeLabels[String(t ?? "")] ?? String(t ?? "عقا
 const statusLabel = (s: unknown): Property["status"] =>
   s === "rented" ? "مؤجر" : s === "pending" ? "قيد المراجعة" : "نشط";
 
-function toProperty(row: Record<string, unknown>): Property {
+function toProperty(row: Row): Property {
   const type = label(row.property_type);
   return {
     id: String(row.id), title: `${type} للإيجار`, type,
@@ -22,7 +24,7 @@ function toProperty(row: Record<string, unknown>): Property {
   };
 }
 
-function toRequest(row: Record<string, unknown>): RentalRequest {
+function toRequest(row: Row): RentalRequest {
   const type = label(row.property_type);
   return {
     id: String(row.id), title: `مطلوب ${type}`, type,
@@ -38,7 +40,7 @@ export const propertiesQuery = queryOptions({
   queryFn: async () => {
     const { data, error } = await supabase.from("public_properties").select("*").order("created_at", { ascending: false });
     if (error) throw new Error("تعذر تحميل العقارات من قاعدة البيانات.");
-    return (data ?? []).map((r) => toProperty(r as Record<string, unknown>));
+    return (data ?? []).map((r) => toProperty(r as Row));
   },
 });
 
@@ -47,6 +49,6 @@ export const requestsQuery = queryOptions({
   queryFn: async () => {
     const { data, error } = await supabase.from("public_rental_requests").select("*").order("created_at", { ascending: false });
     if (error) throw new Error("تعذر تحميل الطلبات من قاعدة البيانات.");
-    return (data ?? []).map((r) => toRequest(r as Record<string, unknown>));
+    return (data ?? []).map((r) => toRequest(r as Row));
   },
 });
