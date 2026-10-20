@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as FeesRouteImport } from './routes/fees'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -25,6 +26,10 @@ import { Route as RequestIdRouteImport } from './routes/request.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeesRoute = FeesRouteImport.update({
@@ -53,24 +58,24 @@ const SearchRoute = SearchRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/_authenticated/admin',
+  id: '/admin',
   path: '/admin',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/_authenticated/profile',
+  id: '/profile',
   path: '/profile',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPublishRoute = AuthenticatedPublishRouteImport.update({
-  id: '/_authenticated/publish',
+  id: '/publish',
   path: '/publish',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRequestNewRoute = AuthenticatedRequestNewRouteImport.update({
-  id: '/_authenticated/request-new',
+  id: '/request-new',
   path: '/request-new',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const PropertyIdRoute = PropertyIdRouteImport.update({
   id: '/property/$id',
@@ -114,6 +119,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -158,6 +164,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/fees'
     | '/login'
     | '/register'
@@ -173,15 +180,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   FeesRoute: typeof FeesRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   RequestsRoute: typeof RequestsRoute
   SearchRoute: typeof SearchRoute
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
-  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
-  AuthenticatedPublishRoute: typeof AuthenticatedPublishRoute
-  AuthenticatedRequestNewRoute: typeof AuthenticatedRequestNewRoute
   PropertyIdRoute: typeof PropertyIdRoute
   RequestIdRoute: typeof RequestIdRoute
 }
@@ -193,6 +197,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fees': {
@@ -235,28 +246,28 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/publish': {
       id: '/_authenticated/publish'
       path: '/publish'
       fullPath: '/publish'
       preLoaderRoute: typeof AuthenticatedPublishRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/request-new': {
       id: '/_authenticated/request-new'
       path: '/request-new'
       fullPath: '/request-new'
       preLoaderRoute: typeof AuthenticatedRequestNewRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/property/$id': {
       id: '/property/$id'
@@ -275,17 +286,31 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedPublishRoute: typeof AuthenticatedPublishRoute
+  AuthenticatedRequestNewRoute: typeof AuthenticatedRequestNewRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedPublishRoute: AuthenticatedPublishRoute,
+  AuthenticatedRequestNewRoute: AuthenticatedRequestNewRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   FeesRoute: FeesRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   RequestsRoute: RequestsRoute,
   SearchRoute: SearchRoute,
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
-  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedPublishRoute: AuthenticatedPublishRoute,
-  AuthenticatedRequestNewRoute: AuthenticatedRequestNewRoute,
   PropertyIdRoute: PropertyIdRoute,
   RequestIdRoute: RequestIdRoute,
 }

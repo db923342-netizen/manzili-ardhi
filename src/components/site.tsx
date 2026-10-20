@@ -1,4 +1,7 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession, checkIsAdmin } from "@/lib/auth";
 import { useState, type ReactNode } from "react";
 import { Lock, Menu, X, MapPin, BedDouble, Ruler, Home, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +17,20 @@ const nav = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const { user } = useSession();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { data: isAdmin } = useQuery({ queryKey: ["is_admin", user?.id], queryFn: checkIsAdmin, enabled: !!user });
+  const links = nav.filter((n) => n.to !== "/admin" || (user && isAdmin));
+  async function signOut() {
+    setOpen(false);
+    await qc.cancelQueries(); qc.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/login", replace: true });
+  }
+  const authLink = user
+    ? <button onClick={signOut} className="rounded-lg px-4 py-2 text-sm hover:text-gold">تسجيل الخروج</button>
+    : <Link to="/login" onClick={() => setOpen(false)} className="rounded-lg px-4 py-2 text-sm hover:text-gold">دخول</Link>;
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-deep text-deep-foreground">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -22,22 +39,22 @@ export function Header() {
           منزلي وأرضي
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
-          {nav.map((n) => (
+          {links.map((n) => (
             <Link key={n.to} to={n.to} className="text-sm opacity-85 hover:text-gold" activeProps={{ className: "text-gold opacity-100" }}>{n.label}</Link>
           ))}
         </nav>
         <div className="hidden gap-2 md:flex">
-          <Link to="/login" className="rounded-lg px-4 py-2 text-sm hover:text-gold">دخول</Link>
+          {authLink}
           <Link to="/publish" className="rounded-lg bg-gold px-4 py-2 text-sm font-bold text-deep">انشر عقارك</Link>
         </div>
         <button className="md:hidden" aria-label="القائمة" onClick={() => setOpen(!open)}>{open ? <X /> : <Menu />}</button>
       </div>
       {open && (
         <div className="flex flex-col gap-1 border-t border-deep-foreground/10 px-4 pb-4 md:hidden">
-          {nav.map((n) => (
+          {links.map((n) => (
             <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="py-2">{n.label}</Link>
           ))}
-          <Link to="/login" onClick={() => setOpen(false)} className="py-2">تسجيل الدخول</Link>
+          <div className="-mx-4">{authLink}</div>
           <Link to="/publish" onClick={() => setOpen(false)} className="mt-2 rounded-lg bg-gold py-2 text-center font-bold text-deep">انشر عقارك</Link>
         </div>
       )}
