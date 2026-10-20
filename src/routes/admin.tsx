@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Users, Building2, FileText, Handshake } from "lucide-react";
-import { properties, requests, formatDA, fees } from "@/lib/data";
+import { useQuery } from "@tanstack/react-query";
+import { formatDA } from "@/lib/data";
+import { propertiesQuery, requestsQuery } from "@/lib/listings";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -16,16 +18,8 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
-const users = [
-  { n: "كريم بن علي", e: "karim@example.dz", s: "نشط" },
-  { n: "سارة مداني", e: "sara@example.dz", s: "نشط" },
-  { n: "محمد ب.", e: "mohamed@example.dz", s: "موقوف" },
-];
-const deals = [
-  { id: "D-104", p: "شقة F3 مطلة على البحر", a: "كريم بن علي", b: "محمد ب.", paid: true, s: "بانتظار الموافقة" },
-  { id: "D-103", p: "شقة F4 في حيدرة", a: "رضا شريف", b: "ليلى ك.", paid: true, s: "مقبولة" },
-  { id: "D-102", p: "استوديو قرب الجامعة", a: "يوسف عمراني", b: "أنيس ر.", paid: false, s: "بانتظار الدفع" },
-];
+const users: { n: string; e: string; s: string }[] = [];
+const deals: { id: string; p: string; a: string; b: string; paid: boolean; s: string }[] = [];
 
 const tabs = [
   { k: "deals", t: "الصفقات", i: Handshake },
@@ -38,11 +32,14 @@ const btn = "rounded-md px-3 py-1 text-xs font-bold";
 
 function Admin() {
   const [tab, setTab] = useState<(typeof tabs)[number]["k"]>("deals");
+  const properties = useQuery(propertiesQuery).data ?? [];
+  const requests = useQuery(requestsQuery).data ?? [];
+  const empty = { deals: deals.length, props: properties.length, reqs: requests.length, users: users.length }[tab] === 0;
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-2xl font-bold">لوحة تحكم المدير</h1>
       <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[["المستخدمون", users.length], ["العقارات", properties.length], ["الطلبات", requests.length], ["إيرادات الشهر", formatDA((fees.dealOwner + fees.dealTenant) * 2)]].map(([t, v]) => (
+        {[["المستخدمون", users.length], ["العقارات", properties.length], ["الطلبات", requests.length], ["إيرادات الشهر", formatDA(0)]].map(([t, v]) => (
           <div key={t} className="rounded-xl bg-deep p-4 text-deep-foreground"><p className="text-sm opacity-75">{t}</p><p className="mt-1 font-display text-xl font-bold text-gold">{v}</p></div>
         ))}
       </div>
@@ -52,6 +49,7 @@ function Admin() {
         ))}
       </div>
       <div className="mt-4 space-y-2">
+        {empty && <p className="py-10 text-center text-muted-foreground">لا توجد بيانات في قاعدة البيانات.</p>}
         {tab === "deals" && deals.map((d) => (
           <Row key={d.id} title={`${d.id} — ${d.p}`} sub={`المالك: ${d.a} • المستأجر: ${d.b} • ${d.paid ? "مدفوعة" : "غير مدفوعة"}`} status={d.s}>
             {d.s === "بانتظار الموافقة" && <><button className={`${btn} bg-primary text-primary-foreground`}>موافقة وكشف الأرقام</button><button className={`${btn} bg-destructive text-destructive-foreground`}>رفض</button></>}

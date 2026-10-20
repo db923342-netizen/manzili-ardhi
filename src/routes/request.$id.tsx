@@ -1,11 +1,12 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { MapPin, User, Calendar } from "lucide-react";
-import { requests, formatDA, fees } from "@/lib/data";
+import { formatDA, fees } from "@/lib/data";
+import { requestsQuery } from "@/lib/listings";
 import { HiddenPhone, btnPrimary } from "@/components/site";
 
 export const Route = createFileRoute("/request/$id")({
-  loader: ({ params }) => {
-    const r = requests.find((x) => x.id === params.id);
+  loader: async ({ params, context }) => {
+    const r = (await context.queryClient.ensureQueryData(requestsQuery)).find((x) => x.id === params.id);
     if (!r) throw notFound();
     return r;
   },
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/request/$id")({
     ],
   }),
   notFoundComponent: () => <p className="py-24 text-center">الطلب غير موجود. <Link to="/requests" className="text-primary">العودة</Link></p>,
+  errorComponent: ({ error }) => <p role="alert" className="py-24 text-center text-destructive">{error instanceof Error ? error.message : "حدث خطأ"}</p>,
   component: Detail,
 });
 
