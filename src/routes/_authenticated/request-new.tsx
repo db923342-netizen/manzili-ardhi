@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageTitle, Field, inputCls, btnGold, WilayaCommune, TypeSelect } from "@/components/site";
 
-export const Route = createFileRoute("/request-new")({
+export const Route = createFileRoute("/_authenticated/request-new")({
   head: () => ({
     meta: [
       { title: "انشر طلب بحث عن عقار | منزلي وأرضي" },
