@@ -10,15 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as FeesRouteImport } from './routes/fees'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as PublishRouteImport } from './routes/publish'
 import { Route as RegisterRouteImport } from './routes/register'
-import { Route as RequestNewRouteImport } from './routes/request-new'
 import { Route as RequestsRouteImport } from './routes/requests'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPublishRouteImport } from './routes/_authenticated/publish'
+import { Route as AuthenticatedRequestNewRouteImport } from './routes/_authenticated/request-new'
 import { Route as PropertyIdRouteImport } from './routes/property.$id'
 import { Route as RequestIdRouteImport } from './routes/request.$id'
 
@@ -27,9 +28,8 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeesRoute = FeesRouteImport.update({
@@ -42,24 +42,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PublishRoute = PublishRouteImport.update({
-  id: '/publish',
-  path: '/publish',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RequestNewRoute = RequestNewRouteImport.update({
-  id: '/request-new',
-  path: '/request-new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestsRoute = RequestsRouteImport.update({
@@ -71,6 +56,26 @@ const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPublishRoute = AuthenticatedPublishRouteImport.update({
+  id: '/publish',
+  path: '/publish',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRequestNewRoute = AuthenticatedRequestNewRouteImport.update({
+  id: '/request-new',
+  path: '/request-new',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const PropertyIdRoute = PropertyIdRouteImport.update({
   id: '/property/$id',
@@ -85,44 +90,45 @@ const RequestIdRoute = RequestIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
-  '/publish': typeof PublishRoute
   '/register': typeof RegisterRoute
-  '/request-new': typeof RequestNewRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/publish': typeof AuthenticatedPublishRoute
+  '/request-new': typeof AuthenticatedRequestNewRoute
   '/property/$id': typeof PropertyIdRoute
   '/request/$id': typeof RequestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
-  '/publish': typeof PublishRoute
   '/register': typeof RegisterRoute
-  '/request-new': typeof RequestNewRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/publish': typeof AuthenticatedPublishRoute
+  '/request-new': typeof AuthenticatedRequestNewRoute
   '/property/$id': typeof PropertyIdRoute
   '/request/$id': typeof RequestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/fees': typeof FeesRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
-  '/publish': typeof PublishRoute
   '/register': typeof RegisterRoute
-  '/request-new': typeof RequestNewRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/publish': typeof AuthenticatedPublishRoute
+  '/_authenticated/request-new': typeof AuthenticatedRequestNewRoute
   '/property/$id': typeof PropertyIdRoute
   '/request/$id': typeof RequestIdRoute
 }
@@ -130,56 +136,54 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/fees'
     | '/login'
-    | '/profile'
-    | '/publish'
     | '/register'
-    | '/request-new'
     | '/requests'
     | '/search'
+    | '/admin'
+    | '/profile'
+    | '/publish'
+    | '/request-new'
     | '/property/$id'
     | '/request/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/fees'
     | '/login'
-    | '/profile'
-    | '/publish'
     | '/register'
-    | '/request-new'
     | '/requests'
     | '/search'
+    | '/admin'
+    | '/profile'
+    | '/publish'
+    | '/request-new'
     | '/property/$id'
     | '/request/$id'
   id:
     | '__root__'
     | '/'
-    | '/admin'
+    | '/_authenticated'
     | '/fees'
     | '/login'
-    | '/profile'
-    | '/publish'
     | '/register'
-    | '/request-new'
     | '/requests'
     | '/search'
+    | '/_authenticated/admin'
+    | '/_authenticated/profile'
+    | '/_authenticated/publish'
+    | '/_authenticated/request-new'
     | '/property/$id'
     | '/request/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   FeesRoute: typeof FeesRoute
   LoginRoute: typeof LoginRoute
-  ProfileRoute: typeof ProfileRoute
-  PublishRoute: typeof PublishRoute
   RegisterRoute: typeof RegisterRoute
-  RequestNewRoute: typeof RequestNewRoute
   RequestsRoute: typeof RequestsRoute
   SearchRoute: typeof SearchRoute
   PropertyIdRoute: typeof PropertyIdRoute
@@ -195,11 +199,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fees': {
@@ -216,32 +220,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/publish': {
-      id: '/publish'
-      path: '/publish'
-      fullPath: '/publish'
-      preLoaderRoute: typeof PublishRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/register': {
       id: '/register'
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/request-new': {
-      id: '/request-new'
-      path: '/request-new'
-      fullPath: '/request-new'
-      preLoaderRoute: typeof RequestNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/requests': {
@@ -257,6 +240,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/publish': {
+      id: '/_authenticated/publish'
+      path: '/publish'
+      fullPath: '/publish'
+      preLoaderRoute: typeof AuthenticatedPublishRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/request-new': {
+      id: '/_authenticated/request-new'
+      path: '/request-new'
+      fullPath: '/request-new'
+      preLoaderRoute: typeof AuthenticatedRequestNewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/property/$id': {
       id: '/property/$id'
@@ -275,15 +286,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedPublishRoute: typeof AuthenticatedPublishRoute
+  AuthenticatedRequestNewRoute: typeof AuthenticatedRequestNewRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedPublishRoute: AuthenticatedPublishRoute,
+  AuthenticatedRequestNewRoute: AuthenticatedRequestNewRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   FeesRoute: FeesRoute,
   LoginRoute: LoginRoute,
-  ProfileRoute: ProfileRoute,
-  PublishRoute: PublishRoute,
   RegisterRoute: RegisterRoute,
-  RequestNewRoute: RequestNewRoute,
   RequestsRoute: RequestsRoute,
   SearchRoute: SearchRoute,
   PropertyIdRoute: PropertyIdRoute,

@@ -1,11 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { checkIsAdmin } from "@/lib/auth";
 import { useState } from "react";
 import { Users, Building2, FileText, Handshake } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDA } from "@/lib/data";
 import { propertiesQuery, requestsQuery } from "@/lib/listings";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
       { title: "لوحة تحكم المدير | منزلي وأرضي" },
@@ -15,6 +16,10 @@ export const Route = createFileRoute("/admin")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  beforeLoad: async () => {
+    // Admin access decided by the database function is_admin(), never by client state.
+    if (!(await checkIsAdmin())) throw redirect({ to: "/profile", search: { denied: "1" } });
+  },
   component: Admin,
 });
 

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageTitle, Field, inputCls, btnGold, WilayaCommune, TypeSelect } from "@/components/site";
 
-export const Route = createFileRoute("/publish")({
+export const Route = createFileRoute("/_authenticated/publish")({
   head: () => ({
     meta: [
       { title: "انشر عقارك للإيجار | منزلي وأرضي" },
