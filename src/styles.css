@@ -92,7 +92,11 @@
   --telegram-foreground: oklch(0.99 0 0);
   --deep: oklch(0.25 0.06 162);
   --deep-foreground: oklch(0.97 0.01 95);
-  --gradient-hero: linear-gradient(180deg, color-mix(in oklab, var(--deep) 30%, transparent), color-mix(in oklab, var(--deep) 92%, transparent));
+  --gradient-hero: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--deep) 30%, transparent),
+    color-mix(in oklab, var(--deep) 92%, transparent)
+  );
   --shadow-card: 0 10px 30px -12px color-mix(in oklab, var(--deep) 25%, transparent);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
@@ -161,7 +165,16 @@
 }
 
 @layer base {
-  body { font-family: var(--font-sans); }
-  h1, h2, h3, h4 { font-family: var(--font-display); }
+  body {
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
 }
-@utility bg-hero { background-image: var(--gradient-hero); }
+@utility bg-hero {
+  background-image: var(--gradient-hero);
+}

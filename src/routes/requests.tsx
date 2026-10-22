@@ -21,12 +21,22 @@ function RequestsPage() {
     <>
       <PageTitle title="طلبات البحث عن عقارات" sub="هل لديك عقار يناسب أحد هذه الطلبات؟" />
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <Link to="/request-new" className={`${btnGold} inline-block`}>انشر طلب بحث</Link>
+        <Link to="/request-new" className={`${btnGold} inline-block`}>
+          انشر طلب بحث
+        </Link>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(requests ?? []).map((r) => <RequestCard key={r.id} r={r} />)}
+          {(requests ?? []).map((r) => (
+            <RequestCard key={r.id} r={r} />
+          ))}
         </div>
-        {isError && <p role="alert" className="py-8 text-center text-destructive">تعذر تحميل الطلبات.</p>}
-        {requests && !requests.length && <p className="py-16 text-center text-muted-foreground">لا توجد طلبات بحث منشورة بعد.</p>}
+        {isError && (
+          <p role="alert" className="py-8 text-center text-destructive">
+            تعذر تحميل الطلبات.
+          </p>
+        )}
+        {requests && !requests.length && (
+          <p className="py-16 text-center text-muted-foreground">لا توجد طلبات بحث منشورة بعد.</p>
+        )}
       </div>
     </>
   );

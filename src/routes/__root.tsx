@@ -21,9 +21,7 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">الصفحة غير موجودة</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          الصفحة التي تبحث عنها غير موجودة.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">الصفحة التي تبحث عنها غير موجودة.</p>
         <div className="mt-6">
           <Link
             to="/"
@@ -83,7 +81,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "منزلي وأرضي | منصة الإيجار العقاري في الجزائر" },
       { name: "description", content: "منصة جزائرية لإيجار العقارات ونشر طلبات البحث بأمان." },
       { property: "og:title", content: "منزلي وأرضي" },
-      { property: "og:description", content: "منصة جزائرية لإيجار العقارات ونشر طلبات البحث بأمان." },
+      {
+        property: "og:description",
+        content: "منصة جزائرية لإيجار العقارات ونشر طلبات البحث بأمان.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -95,7 +96,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&display=swap",
+      },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
@@ -135,7 +139,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Header />
-      <main className="min-h-[70vh]"><Outlet /></main>
+      <main className="min-h-[70vh]">
+        <Outlet />
+      </main>
       <Footer />
     </QueryClientProvider>
   );
