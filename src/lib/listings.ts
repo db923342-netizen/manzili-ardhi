@@ -79,6 +79,19 @@ export const propertiesQuery = queryOptions({
   },
 });
 
+// Admin view: every property (including pending), allowed by the admin RLS policy.
+export const adminPropertiesQuery = queryOptions({
+  queryKey: ["admin_properties"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("properties")
+      .select("id, property_type, wilaya, municipality, monthly_rent, area_m2, description, status, created_at")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error("تعذر تحميل العقارات.");
+    return (data ?? []).map((r) => toProperty(r as Row));
+  },
+});
+
 export const requestsQuery = queryOptions({
   queryKey: ["public_rental_requests"],
   queryFn: async () => {

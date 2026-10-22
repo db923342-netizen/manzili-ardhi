@@ -2,9 +2,10 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { checkIsAdmin } from "@/lib/auth";
 import { useState } from "react";
 import { Users, Building2, FileText, Handshake } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDA } from "@/lib/data";
-import { propertiesQuery, requestsQuery } from "@/lib/listings";
+import { adminPropertiesQuery, propertiesQuery, requestsQuery } from "@/lib/listings";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -37,8 +38,42 @@ const btn = "rounded-md px-3 py-1 text-xs font-bold";
 
 function Admin() {
   const [tab, setTab] = useState<(typeof tabs)[number]["k"]>("deals");
-  const properties = useQuery(propertiesQuery).data ?? [];
+  const qc = useQueryClient();
+  const properties = useQuery(adminPropertiesQuery).data ?? [];
   const requests = useQuery(requestsQuery).data ?? [];
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+
+  const refresh = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: adminPropertiesQuery.queryKey }),
+      qc.invalidateQueries({ queryKey: propertiesQuery.queryKey }),
+    ]);
+
+  async function approve(id: string) {
+    setBusy(id);
+    setMsg("");
+    const { error } = await supabase.from("properties").update({ status: "available" }).eq("id", id);
+    setBusy(null);
+    setMsg(error ? "تعذر قبول العقار. تحقق من صلاحيات المدير." : "تم قبول العقار ونشره.");
+    if (!error) await refresh();
+  }
+
+  async function remove(id: string) {
+    if (!confirm("هل تريد حذف هذا العقار نهائيًا؟")) return;
+    setBusy(id);
+    setMsg("");
+    const { error } = await supabase.from("properties").delete().eq("id", id);
+    setBusy(null);
+    setMsg(
+      error
+        ? error.code === "23503"
+          ? "لا يمكن حذف عقار مرتبط بصفقة."
+          : "تعذر حذف العقار. تحقق من صلاحيات المدير."
+        : "تم حذف العقار.",
+    );
+    if (!error) await refresh();
+  }
   const empty =
     { deals: deals.length, props: properties.length, reqs: requests.length, users: users.length }[
       tab
@@ -97,6 +132,7 @@ function Admin() {
               )}
             </Row>
           ))}
+        {msg && <p className="rounded-md bg-secondary p-3 text-center text-sm">{msg}</p>}
         {tab === "props" &&
           properties.map((p) => (
             <Row
@@ -105,8 +141,20 @@ function Admin() {
               sub={`${p.wilaya} • ${p.owner} • ${formatDA(p.price)}`}
               status={p.status}
             >
-              <button className={`${btn} bg-primary text-primary-foreground`}>قبول</button>
-              <button className={`${btn} bg-destructive text-destructive-foreground`}>حذف</button>
+              <button
+                disabled={busy === p.id || p.status === "نشط"}
+                onClick={() => approve(p.id)}
+                className={`${btn} bg-primary text-primary-foreground disabled:opacity-50`}
+              >
+                {p.status === "نشط" ? "مقبول" : "قبول"}
+              </button>
+              <button
+                disabled={busy === p.id}
+                onClick={() => remove(p.id)}
+                className={`${btn} bg-destructive text-destructive-foreground disabled:opacity-50`}
+              >
+                حذف
+              </button>
             </Row>
           ))}
         {tab === "reqs" &&
