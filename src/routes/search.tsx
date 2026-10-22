@@ -6,7 +6,7 @@ import { propertyTypes, wilayasList, getCommunesForWilaya } from "@/lib/data";
 import { PageTitle, PropertyCard, Field, inputCls } from "@/components/site";
 
 export const Route = createFileRoute("/search")({
-  validateSearch: (s: Record<string, unknown>): { w?: string; c?: string; t?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { w?: string | undefined; c?: string | undefined; t?: string | undefined } => ({
     w: typeof s["w"] === "string" ? s["w"] : undefined,
     c: typeof s["c"] === "string" ? s["c"] : undefined,
     t: typeof s["t"] === "string" ? s["t"] : undefined,
