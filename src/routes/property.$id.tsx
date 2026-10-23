@@ -1,8 +1,11 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useState } from "react";
 import { MapPin, BedDouble, Ruler, User } from "lucide-react";
 import { formatDA, fees } from "@/lib/data";
 import { propertiesQuery } from "@/lib/listings";
 import { HiddenPhone, btnPrimary } from "@/components/site";
+import { useIsAdmin } from "@/lib/auth";
+import { PropertyViewer3D } from "@/components/PropertyViewer3D";
 
 export const Route = createFileRoute("/property/$id")({
   loader: async ({ params, context }) => {
@@ -44,13 +47,50 @@ export const Route = createFileRoute("/property/$id")({
 
 function Detail() {
   const p = Route.useLoaderData();
+  const { isAdmin } = useIsAdmin();
+  const [viewMode, setViewMode] = useState<"image" | "3d">("image");
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <img
-        src={p.image}
-        alt={p.title}
-        className="aspect-[16/9] w-full rounded-2xl object-cover md:aspect-[21/9]"
-      />
+      {/* View Toggle */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode("image")}
+            className={`rounded-lg px-4 py-2 text-xs font-bold transition ${
+              viewMode === "image"
+                ? "bg-primary text-primary-foreground shadow"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            صور العقار
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("3d")}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition ${
+              viewMode === "3d"
+                ? "bg-gold text-deep shadow"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span>معاينة ثلاثية الأبعاد 3D</span>
+            <span className="rounded-full bg-deep/15 px-1.5 py-0.2 text-[10px]">ميزة حية</span>
+          </button>
+        </div>
+      </div>
+
+      {viewMode === "3d" ? (
+        <PropertyViewer3D propertyTitle={p.title} wilaya={p.wilaya} area={p.area} />
+      ) : (
+        <img
+          src={p.image}
+          alt={p.title}
+          className="aspect-[16/9] w-full rounded-2xl object-cover md:aspect-[21/9]"
+        />
+      )}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <span className="rounded-full bg-gold-soft px-3 py-1 text-xs font-bold">
@@ -83,7 +123,7 @@ function Detail() {
             <User size={16} />
             المالك: {p.owner}
           </p>
-          <HiddenPhone label="رقم هاتف صاحب العقار" />
+          <HiddenPhone label="رقم هاتف صاحب العقار" phone={p.ownerPhone} isAdmin={isAdmin} />
           <button className={`${btnPrimary} w-full`}>طلب إتمام الصفقة وكشف الرقم</button>
           <p className="text-xs text-muted-foreground">
             رسوم إتمام الصفقة للمستأجر: {formatDA(fees.dealTenant)}.{" "}

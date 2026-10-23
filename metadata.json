@@ -1,5 +1,7 @@
 {
   "name": "منزلي وأرضي | منصة الإيجار العقاري",
   "description": "منصة جزائرية لإيجار العقارات ونشر طلبات البحث بأمان",
-  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "icon": "/icon.png",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

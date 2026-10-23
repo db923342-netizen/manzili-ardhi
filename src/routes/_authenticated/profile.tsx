@@ -39,7 +39,7 @@ function Profile() {
           </p>
           <p className="mt-1 flex items-center gap-1 text-sm text-gold">
             <Lock size={14} />
-            رقم هاتفك مخفي عن المستخدمين الآخرين
+            رقم هاتفك مخفي عن المستخدمين الآخرين (وظاهر لإدارة المنصة فقط)
           </p>
         </div>
       </div>

@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { Clock, Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { propertiesQuery } from "@/lib/listings";
 import { propertyTypes, wilayasList, getCommunesForWilaya } from "@/lib/data";
@@ -52,6 +53,35 @@ function SearchPage() {
       />
 
       <div className="mx-auto -mt-6 max-w-6xl px-4">
+        {/* Category Switcher Tabs */}
+        <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+          <div className="inline-flex rounded-xl bg-card p-1 border border-border shadow-sm">
+            <span className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-sm">
+              <Building2 size={14} />
+              <span>إيجار عقارات (شهري/سنوي)</span>
+            </span>
+            <Link
+              to="/temporary-rentals"
+              search={{ w: w || undefined, c: c || undefined }}
+              className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition"
+            >
+              <Clock size={14} className="text-gold" />
+              <span>كراء شقق مؤقتة (باليوم / 24 سا)</span>
+              <span className="rounded-full bg-gold/20 px-1.5 py-0.2 text-[10px] text-gold font-bold">
+                جديد
+              </span>
+            </Link>
+          </div>
+
+          <Link
+            to="/temporary-rentals"
+            className="text-xs font-bold text-gold hover:underline flex items-center gap-1"
+          >
+            <span>تبحث عن كراء مؤقت ليوم أو أسبوع؟ اضغط هنا</span>
+            <span>←</span>
+          </Link>
+        </div>
+
         <div className="grid gap-3 rounded-2xl bg-card p-4 shadow-card md:grid-cols-3">
           <Field label="الولاية (69 ولاية)">
             <select

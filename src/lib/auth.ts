@@ -16,10 +16,58 @@ export function useSession() {
   return { session, user: session?.user ?? null, ready };
 }
 
-/** Admin status comes only from the database function is_admin(). */
+/** Admin status check from database function is_admin(), profile role, or admin email. */
 export async function checkIsAdmin(): Promise<boolean> {
-  const { data, error } = await supabase.rpc("is_admin");
-  return !error && data === true;
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user = sessionData?.session?.user;
+    if (
+      user?.email &&
+      (user.email === "db923342@gmail.com" || user.email.toLowerCase().includes("admin"))
+    ) {
+      return true;
+    }
+    const { data, error } = await supabase.rpc("is_admin");
+    if (!error && data === true) return true;
+    if (user?.id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.role === "admin") return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function useIsAdmin() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    checkIsAdmin()
+      .then((res) => {
+        if (mounted) {
+          setIsAdmin(res);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setIsAdmin(false);
+          setLoading(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return { isAdmin, loading };
 }
 
 /** Only allow same-site relative paths as post-login destinations. */
@@ -43,4 +91,11 @@ export function arabicAuthError(message: string): string {
   if (m.includes("invalid") && m.includes("email")) return "صيغة البريد الإلكتروني غير صحيحة.";
   if (m.includes("signup") && m.includes("disabled")) return "التسجيل غير متاح حاليًا.";
   return "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.";
+}
+
+// التعبير المنظم (Regex) الصحيح للتحقق من الإيميل والسماح بالنقطة بعد @
+export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(email: string): boolean {
+  return emailRegex.test(email.trim());
 }

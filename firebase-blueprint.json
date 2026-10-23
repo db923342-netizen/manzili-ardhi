@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile with role-based access control",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "phone": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "property": {
+      "title": "Property",
+      "description": "Real estate listing for villa, apartment, or land in Algeria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["apartment", "villa", "land", "commercial", "office"]
+        },
+        "price": { "type": "number" },
+        "wilaya": { "type": "string" },
+        "commune": { "type": "string" },
+        "area": { "type": "number" },
+        "rooms": { "type": "number" },
+        "description": { "type": "string" },
+        "images": { "type": "string" },
+        "phone": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "type", "price", "wilaya", "status", "userId"]
+    },
+    "inquiry": {
+      "title": "Inquiry",
+      "description": "Inquiry or contact request for a property",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "propertyTitle": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhone": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "message": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "propertyId", "senderName", "message"]
+    },
+    "temporary_booking": {
+      "title": "TemporaryBooking",
+      "description": "Short-term apartment booking reservation in Algeria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rentalId": { "type": "string" },
+        "rentalTitle": { "type": "string" },
+        "wilaya": { "type": "string" },
+        "commune": { "type": "string" },
+        "guestName": { "type": "string" },
+        "guestPhone": { "type": "string" },
+        "checkInDate": { "type": "string" },
+        "checkOutDate": { "type": "string" },
+        "totalNights": { "type": "number" },
+        "guestsCount": { "type": "number" },
+        "nightlyPrice": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "serviceFee": { "type": "number" },
+        "grandTotal": { "type": "number" },
+        "status": { "type": "string", "enum": ["قيد التأكيد", "مؤكد", "مكتمل", "ملغى"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "rentalId",
+        "guestName",
+        "guestPhone",
+        "checkInDate",
+        "checkOutDate",
+        "grandTotal"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User document containing profile and role"
+    },
+    "/properties/{propertyId}": {
+      "schema": "property",
+      "description": "Property listings submitted by users or admins"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": "inquiry",
+      "description": "Customer inquiries and contacts for properties"
+    },
+    "/temporary_bookings/{bookingId}": {
+      "schema": "temporary_booking",
+      "description": "Temporary apartment rental reservations"
+    }
+  }
+}

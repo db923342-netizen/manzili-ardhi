@@ -11,9 +11,11 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { Header, Footer } from "../components/site";
+import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { GeminiAdvisorFloatingButton } from "../components/GeminiAdvisorModal";
 
 function NotFoundComponent() {
   return (
@@ -79,15 +81,30 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "منزلي وأرضي | منصة الإيجار العقاري في الجزائر" },
-      { name: "description", content: "منصة جزائرية لإيجار العقارات ونشر طلبات البحث بأمان." },
-      { property: "og:title", content: "منزلي وأرضي" },
+      {
+        name: "description",
+        content: "منصة جزائرية موثوقة لإيجار العقارات والأراضي ونشر طلبات البحث بأمان بدون وسيط.",
+      },
+      { name: "theme-color", content: "#0d9488" },
+      { name: "application-name", content: "منزلي وأرضي" },
+      { name: "apple-mobile-web-app-title", content: "منزلي وأرضي" },
+      { property: "og:site_name", content: "منزلي وأرضي" },
+      { property: "og:title", content: "منزلي وأرضي | منصة الإيجار العقاري في الجزائر" },
       {
         property: "og:description",
-        content: "منصة جزائرية لإيجار العقارات ونشر طلبات البحث بأمان.",
+        content: "منصة جزائرية موثوقة لإيجار العقارات والأراضي ونشر طلبات البحث بأمان بدون وسيط.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/assets/logo.png" },
+      { property: "og:image:width", content: "700" },
+      { property: "og:image:height", content: "700" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "منزلي وأرضي | كراء العقارات والأراضي" },
+      {
+        name: "twitter:description",
+        content: "منصة جزائرية لإيجار العقارات والأراضي ونشر طلبات البحث بأمان بدون وسيط.",
+      },
+      { name: "twitter:image", content: "/assets/logo.png" },
     ],
     links: [
       {
@@ -101,6 +118,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "32x32" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "manifest", href: "/manifest.json" },
     ],
   }),
   shellComponent: RootShell,
@@ -143,6 +163,8 @@ function RootComponent() {
         <Outlet />
       </main>
       <Footer />
+      <GeminiAdvisorFloatingButton />
+      <Toaster richColors position="top-center" dir="rtl" />
     </QueryClientProvider>
   );
 }

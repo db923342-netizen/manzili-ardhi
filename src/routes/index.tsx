@@ -12,6 +12,8 @@ import {
   btnGold,
   DeveloperSection,
 } from "@/components/site";
+import { PropertyViewer3D } from "@/components/PropertyViewer3D";
+import { defaultTemporaryRentals, formatDA } from "@/lib/data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -51,14 +53,25 @@ function Index() {
         />
         <div className="absolute inset-0 bg-hero" />
         <div className="relative mx-auto max-w-6xl px-4 pb-12 pt-20 text-deep-foreground md:pt-32">
-          <p className="text-gold font-bold">منصة الإيجار العقاري الأولى في الجزائر</p>
-          <h1 className="mt-3 max-w-2xl text-3xl font-extrabold leading-tight md:text-5xl">
-            بيتك القادم في الجزائر، بأمان وشفافية
-          </h1>
-          <p className="mt-4 max-w-xl opacity-85">
-            عبر كافة ولايات الجزائر الـ 69، تصفّح آلاف العقارات للإيجار أو انشر طلبك ودع الملاك
-            يجدونك.
-          </p>
+          <div className="flex flex-col-reverse items-start justify-between gap-6 md:flex-row md:items-center">
+            <div>
+              <p className="font-bold text-gold">منصة الإيجار العقاري الأولى في الجزائر</p>
+              <h1 className="mt-3 max-w-2xl text-3xl font-extrabold leading-tight md:text-5xl">
+                بيتك القادم في الجزائر، بأمان وشفافية
+              </h1>
+              <p className="mt-4 max-w-xl opacity-85">
+                عبر كافة ولايات الجزائر الـ 69، تصفّح آلاف العقارات للإيجار أو انشر طلبك ودع الملاك
+                يجدونك.
+              </p>
+            </div>
+            <div className="shrink-0 self-center md:self-auto">
+              <img
+                src="/assets/logo.png"
+                alt="شعار منزلي وأرضي لكراء العقارات والأراضي"
+                className="h-32 w-32 md:h-44 md:w-44 rounded-2xl bg-white/95 p-2 shadow-2xl border-2 border-gold/40 object-contain"
+              />
+            </div>
+          </div>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -90,27 +103,125 @@ function Index() {
       <section className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[
-            { i: Search, t: "ابحث أو انشر", d: "انشر عقارك للإيجار أو طلب بحث مجانًا." },
-            { i: ShieldCheck, t: "خصوصية تامة", d: "أرقام الهواتف مخفية حتى إتمام الصفقة." },
+            {
+              i: Search,
+              t: "ابحث أو انشر",
+              d: "انشر عقارك للإيجار أو طلب بحث مجانًا.",
+              link: "/search",
+            },
+            {
+              i: ShieldCheck,
+              t: "خصوصية تامة",
+              d: "أرقام الهواتف مخفية حتى إتمام الصفقة.",
+              link: "/fees",
+            },
             {
               i: Handshake,
               t: "صفقة بموافقة المدير",
               d: "يراجع المدير كل صفقة قبل كشف بيانات التواصل.",
+              link: "/fees",
             },
-            { i: Clock, t: "كراء شقق مؤقتة", d: "لمدة 24 ساعة فقط، بأسعار تنافسية." },
-          ].map(({ i: I, t, d }) => (
-            <div key={t} className="rounded-xl border border-border bg-card p-5">
-              <I className="text-gold" />
-              <h3 className="mt-3 font-bold">{t}</h3>
+            {
+              i: Clock,
+              t: "كراء شقق مؤقتة",
+              d: "باليوم و24 ساعة فما فوق، بأسعار تنافسية وشقق مفروشة.",
+              link: "/temporary-rentals",
+              highlight: true,
+            },
+          ].map(({ i: I, t, d, link, highlight }) => (
+            <Link
+              key={t}
+              to={link}
+              className={`rounded-xl border p-5 transition group block ${
+                highlight
+                  ? "border-gold/50 bg-gold/5 hover:border-gold hover:shadow-md"
+                  : "border-border bg-card hover:border-primary/40 hover:shadow-sm"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <I className={highlight ? "text-gold" : "text-primary"} />
+                {highlight && (
+                  <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-black text-gold">
+                    ميزة جديدة
+                  </span>
+                )}
+              </div>
+              <h3 className="mt-3 font-bold group-hover:text-gold transition">{t}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{d}</p>
-            </div>
+            </Link>
           ))}
+        </div>
+      </section>
+
+      {/* Temporary Rentals Highlight Section */}
+      <section className="mx-auto max-w-6xl px-4 mb-14">
+        <div className="rounded-3xl border border-gold/30 bg-gradient-to-r from-deep via-deep/95 to-secondary/30 p-6 sm:p-8 text-deep-foreground shadow-xl">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 border-b border-white/10 pb-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/20 px-3 py-0.5 text-xs font-bold text-gold mb-2">
+                <Clock size={13} />
+                <span>كراء شقق مؤقتة باليوم (24 ساعة)</span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black text-white">
+                شقق واستوديوهات مفروشة للكراء المؤقت
+              </h2>
+              <p className="text-xs md:text-sm text-deep-foreground/75 mt-1">
+                خيارات مثالية لرحلات العمل، العطلات العائلية، والزيارات القصيرة عبر الجزائر، وهران،
+                قسنطينة وبجاية.
+              </p>
+            </div>
+            <Link
+              to="/temporary-rentals"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-xs font-black text-deep hover:brightness-105 transition shrink-0"
+            >
+              <span>استكشف كل الشقق المؤقتة</span>
+              <span>←</span>
+            </Link>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {defaultTemporaryRentals.slice(0, 3).map((r) => (
+              <div
+                key={r.id}
+                className="rounded-2xl border border-white/10 bg-card text-card-foreground overflow-hidden shadow hover:shadow-lg transition flex flex-col"
+              >
+                <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                  <img src={r.image} alt={r.title} className="h-full w-full object-cover" />
+                  <div className="absolute top-2.5 right-2.5 rounded-md bg-gold px-2 py-0.5 text-[11px] font-black text-deep">
+                    كراء مؤقت
+                  </div>
+                  <div className="absolute bottom-2 right-2 rounded bg-black/60 backdrop-blur px-2 py-0.5 text-[11px] text-white">
+                    {r.commune}، {r.wilaya}
+                  </div>
+                </div>
+                <div className="p-4 flex flex-1 flex-col">
+                  <h3 className="font-bold text-sm text-foreground line-clamp-1">{r.title}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{r.description}</p>
+                  <div className="mt-auto pt-3 flex items-center justify-between border-t border-border">
+                    <span className="font-black text-primary text-sm">
+                      {formatDA(r.nightlyPrice)}
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        {" "}
+                        / 24 سا
+                      </span>
+                    </span>
+                    <Link
+                      to="/temporary-rentals"
+                      className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-gold hover:text-deep transition"
+                    >
+                      حجز الشقة
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4">
         <div className="mb-6 flex items-end justify-between">
-          <h2 className="text-2xl font-bold">أحدث العقارات</h2>
+          <h2 className="text-2xl font-bold">أحدث العقارات للإيجار الدائم</h2>
           <Link to="/search" className="text-sm font-bold text-primary">
             عرض الكل ←
           </Link>
@@ -149,6 +260,29 @@ function Index() {
           )}
         </div>
       </section>
+      {/* 3D Property & Land Interactive Section */}
+      <section className="mx-auto mt-16 max-w-6xl px-4">
+        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-3">
+          <div>
+            <span className="rounded-full bg-gold-soft px-3 py-1 text-xs font-bold text-deep">
+              تقنية ثلاثية الأبعاد تفاعلية 3D
+            </span>
+            <h2 className="mt-2 text-2xl font-bold md:text-3xl">
+              معاينة افتراضية للعقار وقطعة الأرض
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              استكشف تصميم الفيلا الأندلسية والحديقة، فكك الطوابق هندسياً، وبدّل زوايا الرؤية
+              والإضاءة النهارية والليلية.
+            </p>
+          </div>
+        </div>
+        <PropertyViewer3D
+          propertyTitle="فيلا عصرية مع حديقة وموقف سيارات"
+          wilaya="الجزائر العاصمة"
+          area={360}
+        />
+      </section>
+
       <DeveloperSection />
     </>
   );

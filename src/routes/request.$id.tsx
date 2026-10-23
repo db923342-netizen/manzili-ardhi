@@ -3,6 +3,7 @@ import { MapPin, User, Calendar } from "lucide-react";
 import { formatDA, fees } from "@/lib/data";
 import { requestsQuery } from "@/lib/listings";
 import { HiddenPhone, btnPrimary } from "@/components/site";
+import { useIsAdmin } from "@/lib/auth";
 
 export const Route = createFileRoute("/request/$id")({
   loader: async ({ params, context }) => {
@@ -38,6 +39,8 @@ export const Route = createFileRoute("/request/$id")({
 
 function Detail() {
   const r = Route.useLoaderData();
+  const { isAdmin } = useIsAdmin();
+
   return (
     <div className="mx-auto grid max-w-4xl gap-6 px-4 py-10 md:grid-cols-3">
       <div className="space-y-4 md:col-span-2">
@@ -69,7 +72,7 @@ function Detail() {
         <p className="leading-8 text-muted-foreground">{r.details}</p>
       </div>
       <aside className="h-fit space-y-4 rounded-2xl border border-border bg-card p-5 shadow-card">
-        <HiddenPhone label="رقم هاتف صاحب الطلب" />
+        <HiddenPhone label="رقم هاتف صاحب الطلب" phone={r.contactPhone} isAdmin={isAdmin} />
         <button className={`${btnPrimary} w-full`}>اقترح عقارك وتواصل معه</button>
         <p className="text-xs text-muted-foreground">
           رسوم إتمام الصفقة للمالك: {formatDA(fees.dealOwner)}.

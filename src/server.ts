@@ -47,6 +47,18 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+      if (
+        (url.pathname === "/api/gemini/chat" || url.pathname === "/api/gemini/advisor") &&
+        request.method === "POST"
+      ) {
+        const { handleGeminiMapsChat } = await import("./server/gemini");
+        const body = (await request.json().catch(() => ({}))) as Parameters<
+          typeof handleGeminiMapsChat
+        >[0];
+        return await handleGeminiMapsChat(body);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

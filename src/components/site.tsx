@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, checkIsAdmin } from "@/lib/auth";
 import { useState, type ReactNode } from "react";
-import { Lock, Menu, X, MapPin, BedDouble, Ruler, Home, Phone } from "lucide-react";
+import { Lock, Menu, X, MapPin, BedDouble, Ruler, Home, Phone, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   formatDA,
@@ -17,6 +17,7 @@ import {
 
 const nav = [
   { to: "/search", label: "العقارات" },
+  { to: "/temporary-rentals", label: "كراء شقق مؤقتة", badge: "24 سا" },
   { to: "/requests", label: "طلبات البحث" },
   { to: "/fees", label: "الرسوم" },
   { to: "/profile", label: "حسابي" },
@@ -57,21 +58,28 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-deep text-deep-foreground">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gold text-deep">
-            <Home size={20} />
-          </span>
-          منزلي وأرضي
+        <Link to="/" className="flex items-center gap-2.5 font-display text-lg font-bold">
+          <img
+            src="/assets/icon-circle.png"
+            alt="شعار منزلي وأرضي"
+            className="h-10 w-10 shrink-0 rounded-full border border-gold/40 shadow-sm object-cover"
+          />
+          <span>منزلي وأرضي</span>
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden items-center gap-5 md:flex">
           {links.map((n) => (
             <Link
               key={n.to}
               to={n.to}
-              className="text-sm opacity-85 hover:text-gold"
-              activeProps={{ className: "text-gold opacity-100" }}
+              className="text-sm opacity-85 hover:text-gold flex items-center gap-1.5 transition"
+              activeProps={{ className: "text-gold opacity-100 font-bold" }}
             >
-              {n.label}
+              <span>{n.label}</span>
+              {"badge" in n && n.badge && (
+                <span className="rounded-full bg-gold/20 border border-gold/40 px-1.5 py-0.2 text-[10px] font-black text-gold">
+                  {n.badge}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -88,8 +96,18 @@ export function Header() {
       {open && (
         <div className="flex flex-col gap-1 border-t border-deep-foreground/10 px-4 pb-4 md:hidden">
           {links.map((n) => (
-            <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="py-2">
-              {n.label}
+            <Link
+              key={n.to}
+              to={n.to}
+              onClick={() => setOpen(false)}
+              className="py-2 flex items-center justify-between"
+            >
+              <span>{n.label}</span>
+              {"badge" in n && n.badge && (
+                <span className="rounded-full bg-gold/20 border border-gold/40 px-1.5 py-0.5 text-[10px] font-black text-gold">
+                  {n.badge}
+                </span>
+              )}
             </Link>
           ))}
           <div className="-mx-4">{authLink}</div>
@@ -204,12 +222,22 @@ export function Footer() {
     <footer className="mt-16 bg-deep text-deep-foreground">
       <div className="mx-auto grid max-w-6xl gap-6 px-4 pt-10 text-sm md:grid-cols-3">
         <div>
-          <p className="font-display text-lg font-bold text-gold">منزلي وأرضي</p>
-          <p className="mt-1 text-xs opacity-60" dir="ltr">
-            Manzili &amp; Ardhi
-          </p>
-          <p className="mt-2 opacity-75">
-            منصة الإيجار العقاري الموثوقة في الجزائر. أرقام الهواتف محمية حتى إتمام الصفقة.
+          <div className="flex items-center gap-3">
+            <img
+              src="/assets/icon-circle.png"
+              alt="شعار منزلي وأرضي"
+              className="h-11 w-11 shrink-0 rounded-full border border-gold/40 shadow-sm object-cover"
+            />
+            <div>
+              <p className="font-display text-lg font-bold text-gold">منزلي وأرضي</p>
+              <p className="text-xs opacity-60" dir="ltr">
+                Manzili &amp; Ardhi
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 opacity-75 leading-relaxed">
+            منصة الإيجار العقاري الموثوقة لكراء العقارات والأراضي في الجزائر. أرقام الهواتف محمية
+            حتى إتمام الصفقة.
           </p>
         </div>
         <div className="flex flex-col gap-2 opacity-85">
@@ -440,10 +468,40 @@ export function RequestCard({ r }: { r: RentalRequest }) {
 export function HiddenPhone({
   label = "رقم هاتف صاحب العقار",
   phone,
+  isAdmin = false,
 }: {
   label?: string;
   phone?: string;
+  isAdmin?: boolean;
 }) {
+  if (isAdmin && phone) {
+    return (
+      <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-card-foreground">
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-300">
+            <Phone size={15} className="text-emerald-600 dark:text-emerald-400" />
+            {label}
+          </p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+            <ShieldCheck size={13} /> غير مخفي عن الأدمن
+          </span>
+        </div>
+        <a
+          href={`tel:${phone.replace(/\s+/g, "")}`}
+          className="mt-2 block font-mono text-xl font-bold tracking-wider text-emerald-700 hover:underline dark:text-emerald-300"
+          dir="ltr"
+          title="الاتصال المباشر بالرقم"
+        >
+          {phone}
+        </a>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+          هذا الرقم ظاهر لك بصفتك مسؤول المنصة. وهو مخفي تماماً ومشفر عن المستخدمين العاديين لحماية
+          الخصوصية.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-dashed border-gold bg-gold-soft p-4 text-card-foreground">
       <div className="flex items-center justify-between">
@@ -456,10 +514,10 @@ export function HiddenPhone({
         </span>
       </div>
       <p className="mt-2 font-mono text-lg font-bold tracking-widest text-primary" dir="ltr">
-        {phone ? phone : "0X •• •• •• ••"}
+        0X •• •• •• ••
       </p>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        رقم الهاتف مخفي لحماية خصوصية صاحب العقار. يتم كشف الرقم للمستأجر مباشرة بعد طلب إتمام
+        رقم الهاتف مخفي لحماية خصوصية المستخدمين فيما بينهم. يتم كشف الرقم للطرف الآخر فقط بعد إتمام
         الصفقة وموافقة الإدارة.
       </p>
     </div>
