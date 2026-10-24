@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RequestsRouteImport } from './routes/requests'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as TemporaryRentalsRouteImport } from './routes/temporary-rentals'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPublishRouteImport } from './routes/_authenticated/publish'
@@ -57,6 +58,11 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TemporaryRentalsRoute = TemporaryRentalsRouteImport.update({
+  id: '/temporary-rentals',
+  path: '/temporary-rentals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
+  '/temporary-rentals': typeof TemporaryRentalsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/publish': typeof AuthenticatedPublishRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
+  '/temporary-rentals': typeof TemporaryRentalsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/publish': typeof AuthenticatedPublishRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
+  '/temporary-rentals': typeof TemporaryRentalsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/publish': typeof AuthenticatedPublishRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/requests'
     | '/search'
+    | '/temporary-rentals'
     | '/admin'
     | '/profile'
     | '/publish'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/requests'
     | '/search'
+    | '/temporary-rentals'
     | '/admin'
     | '/profile'
     | '/publish'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/requests'
     | '/search'
+    | '/temporary-rentals'
     | '/_authenticated/admin'
     | '/_authenticated/profile'
     | '/_authenticated/publish'
@@ -186,6 +198,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   RequestsRoute: typeof RequestsRoute
   SearchRoute: typeof SearchRoute
+  TemporaryRentalsRoute: typeof TemporaryRentalsRoute
   PropertyIdRoute: typeof PropertyIdRoute
   RequestIdRoute: typeof RequestIdRoute
 }
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/temporary-rentals': {
+      id: '/temporary-rentals'
+      path: '/temporary-rentals'
+      fullPath: '/temporary-rentals'
+      preLoaderRoute: typeof TemporaryRentalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -311,6 +331,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   RequestsRoute: RequestsRoute,
   SearchRoute: SearchRoute,
+  TemporaryRentalsRoute: TemporaryRentalsRoute,
   PropertyIdRoute: PropertyIdRoute,
   RequestIdRoute: RequestIdRoute,
 }
