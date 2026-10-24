@@ -185,7 +185,7 @@ export interface FirestoreTemporaryBooking {
   commune: string;
   guestName: string;
   guestPhone: string;
-  guestEmail?: string;
+  guestEmail?: string | undefined;
   checkInDate: string;
   checkOutDate: string;
   totalNights: number;
@@ -195,8 +195,8 @@ export interface FirestoreTemporaryBooking {
   serviceFee: number;
   grandTotal: number;
   status: "قيد التأكيد" | "مؤكد" | "مكتمل" | "ملغى";
-  specialNotes?: string;
-  userId?: string;
+  specialNotes?: string | undefined;
+  userId?: string | undefined;
   createdAt: string;
 }
 

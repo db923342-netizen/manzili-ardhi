@@ -470,9 +470,9 @@ export function HiddenPhone({
   phone,
   isAdmin = false,
 }: {
-  label?: string;
-  phone?: string;
-  isAdmin?: boolean;
+  label?: string | undefined;
+  phone?: string | undefined;
+  isAdmin?: boolean | undefined;
 }) {
   if (isAdmin && phone) {
     return (

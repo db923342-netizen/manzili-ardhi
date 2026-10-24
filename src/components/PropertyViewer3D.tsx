@@ -141,8 +141,13 @@ export function PropertyViewer3D({
     controls.target.set(0, 3, 0);
 
     // Cancel camera scripted transition if user drags
+    let isDragging = false;
     controls.addEventListener("start", () => {
+      isDragging = true;
       targetCamRef.current = null;
+    });
+    controls.addEventListener("end", () => {
+      isDragging = false;
     });
 
     // 6. Balanced 3-Point Studio Lighting Rig
@@ -169,7 +174,19 @@ export function PropertyViewer3D({
     scene.add(fillLight);
 
     // Materials dictionary
-    const materials: Record<string, THREE.Material> = {
+    type MaterialKey =
+      | "ground"
+      | "soilPlot"
+      | "stonePaving"
+      | "wallStucco"
+      | "wallTrim"
+      | "terracottaRoof"
+      | "woodDoor"
+      | "glass"
+      | "metalAccents"
+      | "foliage"
+      | "woodTrunk";
+    const materials: Record<MaterialKey, THREE.Material> = {
       ground: new THREE.MeshStandardMaterial({
         color: 0x82a868, // Mediterranean lawn
         roughness: 0.88,
@@ -438,8 +455,9 @@ export function PropertyViewer3D({
 
       // Exponential damping on camera target transitions
       if (targetCamRef.current) {
-        camera.position.damp(targetCamRef.current.pos, 4, delta);
-        controls.target.damp(targetCamRef.current.target, 4, delta);
+        const dampFactor = 1 - Math.exp(-4 * delta);
+        camera.position.lerp(targetCamRef.current.pos, dampFactor);
+        controls.target.lerp(targetCamRef.current.target, dampFactor);
         if (
           camera.position.distanceTo(targetCamRef.current.pos) < 0.1 &&
           controls.target.distanceTo(targetCamRef.current.target) < 0.1
@@ -463,7 +481,7 @@ export function PropertyViewer3D({
       roofGroup.position.y = 3.0 + p * 3.5;
 
       // Subtle slow turntable rotation when not dragging
-      if (!controls.state) {
+      if (!isDragging) {
         architecturalModel.rotation.y += delta * 0.04;
       }
 
