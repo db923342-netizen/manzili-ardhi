@@ -3,7 +3,7 @@ import path from "node:path";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 function resolveApiKey(): string | undefined {
-  let key = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  let key = process.env["GEMINI_API_KEY"] || process.env["API_KEY"];
 
   // If environment has mock/placeholder or empty key, try reading from .env.local
   if (!key || key === "MY_GEMINI_API_KEY") {
@@ -21,7 +21,7 @@ function resolveApiKey(): string | undefined {
               const val = trimmed.substring("GEMINI_API_KEY=".length).trim();
               if (val && val !== "MY_GEMINI_API_KEY") {
                 key = val;
-                process.env.GEMINI_API_KEY = val;
+                process.env["GEMINI_API_KEY"] = val;
                 break;
               }
             }

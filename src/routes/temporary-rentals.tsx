@@ -42,12 +42,12 @@ export const Route = createFileRoute("/temporary-rentals")({
   validateSearch: (
     s: Record<string, unknown>,
   ): {
-    w?: string;
-    c?: string;
-    type?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    guests?: string;
+    w?: string | undefined;
+    c?: string | undefined;
+    type?: string | undefined;
+    minPrice?: string | undefined;
+    maxPrice?: string | undefined;
+    guests?: string | undefined;
   } => ({
     w: typeof s["w"] === "string" ? s["w"] : undefined,
     c: typeof s["c"] === "string" ? s["c"] : undefined,
@@ -236,7 +236,7 @@ export function TemporaryRentalsPage() {
 
             <div className="flex flex-col gap-2.5 sm:flex-row md:items-center">
               <Link
-                to="/_authenticated/publish"
+                to="/publish"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-extrabold text-deep shadow-lg hover:brightness-105 transition"
               >
                 <Home size={18} />

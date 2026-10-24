@@ -64,7 +64,7 @@ function SearchPage() {
             </span>
             <Link
               to="/temporary-rentals"
-              search={{ w: w || undefined, c: c || undefined }}
+              search={{ ...(w ? { w } : {}), ...(c ? { c } : {}) }}
               className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition"
             >
               <Clock size={14} className="text-gold" />
