@@ -1,7 +1,10 @@
 # Roadmap
 
 ## Open
-- [ ] التحقق من سبب عدم ظهور واجهة التطبيق في صفحة المعاينة (preview) وإصلاحه — مستخدم 08:58 UTC
+- (none)
+
+## Done
+- [x] التحقق من سبب عدم ظهور واجهة التطبيق في المعاينة — السبب كان أخطاء فحص الكود التي أوقفت البناء؛ بعد إصلاحها صار البناء OK والصفحة تظهر في تبويب المعاينة
 
 ## Done
 - [x] إصلاح أخطاء فحص الكود (32 خطأ) في: PropertyViewer3D.tsx، site.tsx (HiddenPhone)، search.tsx، temporary-rentals.tsx، firebase.ts، server/gemini.ts — البناء الآن OK
