@@ -1,9 +1,12 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { MapPin, User, Calendar } from "lucide-react";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { MapPin, User, Calendar, Trash2, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDA, fees } from "@/lib/data";
-import { requestsQuery } from "@/lib/listings";
+import { requestsQuery, executeDeleteRequest } from "@/lib/listings";
 import { HiddenPhone, btnPrimary } from "@/components/site";
 import { useIsAdmin } from "@/lib/auth";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/request/$id")({
   loader: async ({ params, context }) => {
@@ -40,6 +43,21 @@ export const Route = createFileRoute("/request/$id")({
 function Detail() {
   const r = Route.useLoaderData();
   const { isAdmin } = useIsAdmin();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  async function handleAdminDelete() {
+    setIsDeleting(true);
+    try {
+      await executeDeleteRequest(r, queryClient);
+      toast.success("تم حذف طلب البحث بنجاح.");
+      navigate({ to: "/requests" });
+    } catch {
+      toast.error("تعذر حذف طلب البحث.");
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <div className="mx-auto grid max-w-4xl gap-6 px-4 py-10 md:grid-cols-3">
@@ -77,6 +95,21 @@ function Detail() {
         <p className="text-xs text-muted-foreground">
           رسوم إتمام الصفقة للمالك: {formatDA(fees.dealOwner)}.
         </p>
+
+        {isAdmin && (
+          <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2">
+            <p className="text-xs font-bold text-destructive">صلاحيات المدير</p>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleAdminDelete}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-destructive px-3 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 transition active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              حذف هذا الطلب نهائياً
+            </button>
+          </div>
+        )}
       </aside>
     </div>
   );

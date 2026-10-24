@@ -34,9 +34,11 @@ import {
   type AdminUser,
   executeDeleteProperty,
   executeDeleteRequest,
-  markDealDeleted,
-  markUserDeleted,
-  markBookingDeleted,
+  executeDeleteUser,
+  executeDeleteBooking,
+  executeDeleteDeal,
+  getDeletedDealIds,
+  getDeletedBookingIds,
 } from "@/lib/listings";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -74,58 +76,67 @@ function Admin() {
   const [tab, setTab] = useState<(typeof tabs)[number]["k"]>("props");
   const queryClient = useQueryClient();
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [deals, setDeals] = useState(defaultDealsWithPhones);
 
-  const [tempBookings, setTempBookings] = useState<FirestoreTemporaryBooking[]>([
-    {
-      id: "tmp-b101",
-      rentalId: "temp-101",
-      rentalTitle: "شقة فاخرة F3 مؤثثة بالكامل - حيدرة العاصمة",
-      wilaya: "الجزائر",
-      commune: "حيدرة",
-      guestName: "عبد القادر مسعودي",
-      guestPhone: "0554 11 22 33",
-      checkInDate: new Date().toISOString().slice(0, 10),
-      checkOutDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-      totalNights: 1,
-      guestsCount: 3,
-      nightlyPrice: 8500,
-      totalPrice: 8500,
-      serviceFee: 500,
-      grandTotal: 9000,
-      status: "قيد التأكيد",
-      specialNotes: "وصول بعد العصر، عائلة مصحوبة بدفتر عائلي",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "tmp-b102",
-      rentalId: "temp-102",
-      rentalTitle: "استوديو عصري مجهز مطل على البحر - وهران (كانستيل)",
-      wilaya: "وهران",
-      commune: "وهران",
-      guestName: "فؤاد غربي",
-      guestPhone: "0668 44 55 66",
-      checkInDate: new Date().toISOString().slice(0, 10),
-      checkOutDate: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
-      totalNights: 2,
-      guestsCount: 2,
-      nightlyPrice: 5000,
-      totalPrice: 10000,
-      serviceFee: 500,
-      grandTotal: 10500,
-      status: "مؤكد",
-      specialNotes: "مهمة عمل في وهران، طلب فاتورة استلام",
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+  const [deals, setDeals] = useState(() => {
+    const deleted = getDeletedDealIds();
+    return defaultDealsWithPhones.filter((d) => !deleted.has(d.id));
+  });
+
+  const [tempBookings, setTempBookings] = useState<FirestoreTemporaryBooking[]>(() => {
+    const deleted = getDeletedBookingIds();
+    const defaults: FirestoreTemporaryBooking[] = [
+      {
+        id: "tmp-b101",
+        rentalId: "temp-101",
+        rentalTitle: "شقة فاخرة F3 مؤثثة بالكامل - حيدرة العاصمة",
+        wilaya: "الجزائر",
+        commune: "حيدرة",
+        guestName: "عبد القادر مسعودي",
+        guestPhone: "0554 11 22 33",
+        checkInDate: new Date().toISOString().slice(0, 10),
+        checkOutDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+        totalNights: 1,
+        guestsCount: 3,
+        nightlyPrice: 8500,
+        totalPrice: 8500,
+        serviceFee: 500,
+        grandTotal: 9000,
+        status: "قيد التأكيد",
+        specialNotes: "وصول بعد العصر، عائلة مصحوبة بدفتر عائلي",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "tmp-b102",
+        rentalId: "temp-102",
+        rentalTitle: "استوديو عصري مجهز مطل على البحر - وهران (كانستيل)",
+        wilaya: "وهران",
+        commune: "وهران",
+        guestName: "فؤاد غربي",
+        guestPhone: "0668 44 55 66",
+        checkInDate: new Date().toISOString().slice(0, 10),
+        checkOutDate: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
+        totalNights: 2,
+        guestsCount: 2,
+        nightlyPrice: 5000,
+        totalPrice: 10000,
+        serviceFee: 500,
+        grandTotal: 10500,
+        status: "مؤكد",
+        specialNotes: "مهمة عمل في وهران، طلب فاتورة استلام",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    return defaults.filter((b) => !deleted.has(b.id));
+  });
 
   // Load bookings from Firestore if available
   useEffect(() => {
     getTemporaryBookingsFromFirestore().then((remote) => {
       if (remote && remote.length > 0) {
+        const deleted = getDeletedBookingIds();
         setTempBookings((prev) => {
           const map = new Map<string, FirestoreTemporaryBooking>();
-          [...remote, ...prev].forEach((b) => map.set(b.id, b));
+          [...remote, ...prev].filter((b) => !deleted.has(b.id)).forEach((b) => map.set(b.id, b));
           return Array.from(map.values());
         });
       }
@@ -169,16 +180,13 @@ function Admin() {
         console.warn("Firestore sync update:", fbErr);
       }
 
-      // 3. Optimistic cache update
+      // 3. Direct cache update
       queryClient.setQueryData<Property[]>(adminPropertiesQuery.queryKey, (old = []) =>
         old.map((item) => (item.id === p.id ? { ...item, status: "نشط" } : item)),
       );
       queryClient.setQueryData<Property[]>(propertiesQuery.queryKey, (old = []) =>
         old.map((item) => (item.id === p.id ? { ...item, status: "نشط" } : item)),
       );
-
-      await queryClient.invalidateQueries({ queryKey: ["admin_properties"] });
-      await queryClient.invalidateQueries({ queryKey: ["public_properties"] });
 
       toast.success(`تم قبول ونشر العقار: "${p.title}" بنجاح!`);
     } catch {
@@ -192,33 +200,7 @@ function Admin() {
   async function handleDeleteProperty(p: Property) {
     setLoadingId(`delete-${p.id}`);
     try {
-      // 1. Delete in Supabase
-      const { error } = await supabase.from("properties").delete().eq("id", p.id);
-
-      if (error) {
-        console.warn("Supabase delete failed, setting status to rejected:", error.message);
-        await supabase.from("properties").update({ status: "rejected" }).eq("id", p.id);
-      }
-
-      // 2. Synchronize with Firebase Firestore
-      try {
-        const { deletePropertyFromFirestore } = await import("@/lib/firebase");
-        await deletePropertyFromFirestore(p.id);
-      } catch (fbErr) {
-        console.warn("Firestore sync delete:", fbErr);
-      }
-
-      // 3. Optimistic cache update
-      queryClient.setQueryData<Property[]>(adminPropertiesQuery.queryKey, (old = []) =>
-        old.filter((item) => item.id !== p.id),
-      );
-      queryClient.setQueryData<Property[]>(propertiesQuery.queryKey, (old = []) =>
-        old.filter((item) => item.id !== p.id),
-      );
-
-      await queryClient.invalidateQueries({ queryKey: ["admin_properties"] });
-      await queryClient.invalidateQueries({ queryKey: ["public_properties"] });
-
+      await executeDeleteProperty(p, queryClient);
       toast.success(`تم حذف العقار "${p.title}" بنجاح.`);
     } catch {
       toast.error("تعذر حذف العقار.");
@@ -231,22 +213,8 @@ function Admin() {
   async function handleDeleteRequest(r: RentalRequest) {
     setLoadingId(`del-req-${r.id}`);
     try {
-      const { error } = await supabase.from("rental_requests").delete().eq("id", r.id);
-
-      if (error) {
-        await supabase.from("rental_requests").update({ status: "cancelled" }).eq("id", r.id);
-      }
-
-      queryClient.setQueryData<RentalRequest[]>(adminRequestsQuery.queryKey, (old = []) =>
-        old.filter((item) => item.id !== r.id),
-      );
-      queryClient.setQueryData<RentalRequest[]>(requestsQuery.queryKey, (old = []) =>
-        old.filter((item) => item.id !== r.id),
-      );
-      await queryClient.invalidateQueries({ queryKey: ["admin_rental_requests"] });
-      await queryClient.invalidateQueries({ queryKey: ["public_rental_requests"] });
-
-      toast.success(`تم حذف طلب البحث: "${r.title}"`);
+      await executeDeleteRequest(r, queryClient);
+      toast.success(`تم حذف طلب البحث: "${r.title}" بنجاح.`);
     } catch {
       toast.error("تعذر حذف طلب البحث.");
     } finally {
@@ -273,14 +241,13 @@ function Admin() {
     }
   }
 
-  // إجراء رفض الصفقة
+  // إجراء رفض وإلغاء وحذف الصفقة (بدون window.confirm المحظور في الـ iframe)
   async function handleRejectDeal(id: string) {
-    if (!window.confirm("هل أنت متأكد من رفض هذه الصفقة؟")) return;
     setLoadingId(`deal-rej-${id}`);
     try {
-      await supabase.from("deals").delete().eq("id", id);
+      await executeDeleteDeal(id);
       setDeals((old) => old.filter((d) => d.id !== id));
-      toast.success("تم رفض الصفقة وإلغاؤها.");
+      toast.success("تم إلغاء وحذف الصفقة بنجاح.");
     } catch {
       toast.error("تعذر إلغاء الصفقة.");
     } finally {
@@ -300,6 +267,20 @@ function Admin() {
         return u;
       }),
     );
+  }
+
+  // حذف المستخدم نهائياً
+  async function handleDeleteUser(userId: string) {
+    setLoadingId(`del-user-${userId}`);
+    try {
+      await executeDeleteUser(userId, queryClient);
+      setUsers((old) => old.filter((u) => u.id !== userId));
+      toast.success("تم حذف حساب المستخدم بنجاح.");
+    } catch {
+      toast.error("تعذر حذف المستخدم.");
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   const empty =
@@ -337,6 +318,19 @@ function Admin() {
     );
     toast.success(`تم إلغاء طلب الحجز.`);
     setLoadingId(null);
+  }
+
+  async function handleDeleteBooking(booking: FirestoreTemporaryBooking) {
+    setLoadingId(`del-book-${booking.id}`);
+    try {
+      await executeDeleteBooking(booking.id);
+      setTempBookings((prev) => prev.filter((b) => b.id !== booking.id));
+      toast.success("تم حذف سجل الحجز نهائياً.");
+    } catch {
+      toast.error("تعذر حذف الحجز.");
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   return (
@@ -470,29 +464,35 @@ function Admin() {
               }
               status={d.s}
             >
-              {d.s === "بانتظار الموافقة" ? (
-                <>
-                  <button
-                    disabled={loadingId === `deal-app-${d.id}`}
-                    onClick={() => handleApproveDeal(d.id)}
-                    className={`${btn} bg-primary text-primary-foreground hover:bg-primary/90`}
-                  >
-                    {loadingId === `deal-app-${d.id}` ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    موافقة وكشف الأرقام
-                  </button>
-                  <button
-                    disabled={loadingId === `deal-rej-${d.id}`}
-                    onClick={() => handleRejectDeal(d.id)}
-                    className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90`}
-                  >
-                    رفض
-                  </button>
-                </>
-              ) : null}
+              {d.s === "بانتظار الموافقة" && (
+                <button
+                  type="button"
+                  disabled={loadingId === `deal-app-${d.id}`}
+                  onClick={() => handleApproveDeal(d.id)}
+                  className={`${btn} bg-primary text-primary-foreground hover:bg-primary/90`}
+                >
+                  {loadingId === `deal-app-${d.id}` ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Check size={13} />
+                  )}
+                  موافقة وكشف الأرقام
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={loadingId === `deal-rej-${d.id}`}
+                onClick={() => handleRejectDeal(d.id)}
+                className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
+                title="حذف هذه الصفقة"
+              >
+                {loadingId === `deal-rej-${d.id}` ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Trash2 size={13} />
+                )}
+                {d.s === "بانتظار الموافقة" ? "رفض وإلغاء" : "حذف"}
+              </button>
             </Row>
           ))}
 
@@ -675,6 +675,7 @@ function Admin() {
               {b.status === "قيد التأكيد" && (
                 <button
                   type="button"
+                  disabled={loadingId === `confirm-${b.id}`}
                   onClick={() => handleConfirmBooking(b)}
                   className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}
                 >
@@ -685,13 +686,27 @@ function Admin() {
               {b.status !== "ملغى" && (
                 <button
                   type="button"
+                  disabled={loadingId === `cancel-${b.id}`}
                   onClick={() => handleCancelBooking(b)}
-                  className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90`}
+                  className={`${btn} bg-amber-600 text-white hover:bg-amber-700`}
                 >
-                  <Trash2 size={13} />
-                  إلغاء
+                  إلغاء الحجز
                 </button>
               )}
+              <button
+                type="button"
+                disabled={loadingId === `del-book-${b.id}`}
+                onClick={() => handleDeleteBooking(b)}
+                className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
+                title="حذف سجل هذا الحجز نهائياً"
+              >
+                {loadingId === `del-book-${b.id}` ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Trash2 size={13} />
+                )}
+                حذف
+              </button>
             </Row>
           ))}
 
@@ -736,6 +751,20 @@ function Admin() {
                 className={`${btn} bg-secondary hover:bg-secondary/80`}
               >
                 {u.s === "نشط" ? "إيقاف الحساب" : "تفعيل الحساب"}
+              </button>
+              <button
+                type="button"
+                disabled={loadingId === `del-user-${u.id}`}
+                onClick={() => handleDeleteUser(u.id)}
+                className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
+                title="حذف حساب هذا المستخدم نهائياً"
+              >
+                {loadingId === `del-user-${u.id}` ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Trash2 size={13} />
+                )}
+                حذف
               </button>
             </Row>
           ))}

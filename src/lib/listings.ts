@@ -283,8 +283,7 @@ export const defaultProperties: Property[] = [
     price: 70000,
     rooms: 2,
     area: 65,
-    description:
-      "محل تجاري في موقع حيوي ونشط تجارياً بوسط مدينة قسنطينة، صالح لعدة نشاطات وخدمات.",
+    description: "محل تجاري في موقع حيوي ونشط تجارياً بوسط مدينة قسنطينة، صالح لعدة نشاطات وخدمات.",
     owner: "ياسين بن عودة",
     ownerPhone: "0658 91 02 43",
     status: "قيد المراجعة",
@@ -407,19 +406,6 @@ export const propertiesQuery = queryOptions({
   },
 });
 
-// Admin view: every property (including pending), allowed by the admin RLS policy.
-export const adminPropertiesQuery = queryOptions({
-  queryKey: ["admin_properties"],
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("properties")
-      .select("id, property_type, wilaya, municipality, monthly_rent, area_m2, description, status, created_at")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error("تعذر تحميل العقارات.");
-    return (data ?? []).map((r) => toProperty(r as Row));
-  },
-});
-
 export const requestsQuery = queryOptions({
   queryKey: ["public_rental_requests"],
   queryFn: async (): Promise<RentalRequest[]> => {
@@ -479,11 +465,7 @@ export const adminPropertiesQuery = queryOptions({
             owner: p.userName || "صاحب العقار",
             ownerPhone: p.phone,
             status:
-              p.status === "approved"
-                ? "نشط"
-                : p.status === "pending"
-                  ? "قيد المراجعة"
-                  : "مؤجر",
+              p.status === "approved" ? "نشط" : p.status === "pending" ? "قيد المراجعة" : "مؤجر",
             image: p.images || hero,
           }));
         }
@@ -677,4 +659,35 @@ export async function executeDeleteRequest(
   queryClient.setQueryData<RentalRequest[]>(requestsQuery.queryKey, (old = []) =>
     old.filter((item) => item.id !== r.id),
   );
+}
+
+export async function executeDeleteUser(userId: string, queryClient: QueryClient): Promise<void> {
+  markUserDeleted(userId);
+  try {
+    await supabase.from("profiles").delete().eq("id", userId);
+  } catch {
+    // Supabase error tolerated
+  }
+  queryClient.setQueryData<AdminUser[]>(adminUsersQuery.queryKey, (old = []) =>
+    old.filter((item) => item.id !== userId),
+  );
+}
+
+export async function executeDeleteBooking(bookingId: string): Promise<void> {
+  markBookingDeleted(bookingId);
+  try {
+    const { deleteTemporaryBookingFromFirestore } = await import("./firebase");
+    await deleteTemporaryBookingFromFirestore(bookingId);
+  } catch {
+    // Tolerated
+  }
+}
+
+export async function executeDeleteDeal(dealId: string): Promise<void> {
+  markDealDeleted(dealId);
+  try {
+    await supabase.from("deals").delete().eq("id", dealId);
+  } catch {
+    // Tolerated
+  }
 }

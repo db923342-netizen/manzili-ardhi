@@ -1,11 +1,13 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { MapPin, BedDouble, Ruler, User } from "lucide-react";
+import { MapPin, BedDouble, Ruler, User, Trash2, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDA, fees } from "@/lib/data";
-import { propertiesQuery } from "@/lib/listings";
+import { propertiesQuery, executeDeleteProperty } from "@/lib/listings";
 import { HiddenPhone, btnPrimary } from "@/components/site";
 import { useIsAdmin } from "@/lib/auth";
 import { PropertyViewer3D } from "@/components/PropertyViewer3D";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/property/$id")({
   loader: async ({ params, context }) => {
@@ -49,6 +51,21 @@ function Detail() {
   const p = Route.useLoaderData();
   const { isAdmin } = useIsAdmin();
   const [viewMode, setViewMode] = useState<"image" | "3d">("image");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  async function handleAdminDelete() {
+    setIsDeleting(true);
+    try {
+      await executeDeleteProperty(p, queryClient);
+      toast.success("تم حذف العقار نهائياً بنجاح.");
+      navigate({ to: "/search" });
+    } catch {
+      toast.error("تعذر حذف العقار.");
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -131,6 +148,21 @@ function Detail() {
               التفاصيل
             </Link>
           </p>
+
+          {isAdmin && (
+            <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2">
+              <p className="text-xs font-bold text-destructive">صلاحيات المدير</p>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleAdminDelete}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-destructive px-3 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 transition active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                حذف هذا العقار نهائياً
+              </button>
+            </div>
+          )}
         </aside>
       </div>
     </div>
