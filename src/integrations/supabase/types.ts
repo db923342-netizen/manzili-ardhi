@@ -14,45 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      deals: {
+      app_settings: {
         Row: {
-          completed: boolean
-          contacts_released: boolean
-          created_at: string
-          id: string
-          initial_fee: number
-          initial_fee_payer: string
-          monthly_fee: number
-          monthly_fee_payer: string
-          monthly_rent: number
-          property_id: string | null
-          rental_request_id: string | null
+          key: string
+          updated_at: string
+          value: number
         }
         Insert: {
-          completed?: boolean
-          contacts_released?: boolean
-          created_at?: string
-          id?: string
-          initial_fee: number
-          initial_fee_payer: string
-          monthly_fee: number
-          monthly_fee_payer: string
-          monthly_rent: number
-          property_id?: string | null
-          rental_request_id?: string | null
+          key: string
+          updated_at?: string
+          value: number
         }
         Update: {
-          completed?: boolean
-          contacts_released?: boolean
+          key?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      deals: {
+        Row: {
+          created_at: string
+          fee: number
+          fee_payer: string | null
+          id: string
+          monthly_rent: number
+          property_id: string
+          rental_request_id: string | null
+          renter_id: string
+          renter_name: string | null
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
           created_at?: string
+          fee?: number
+          fee_payer?: string | null
           id?: string
-          initial_fee?: number
-          initial_fee_payer?: string
-          monthly_fee?: number
-          monthly_fee_payer?: string
-          monthly_rent?: number
-          property_id?: string | null
+          monthly_rent: number
+          property_id: string
           rental_request_id?: string | null
+          renter_id: string
+          renter_name?: string | null
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fee?: number
+          fee_payer?: string | null
+          id?: string
+          monthly_rent?: number
+          property_id?: string
+          rental_request_id?: string | null
+          renter_id?: string
+          renter_name?: string | null
+          requested_by?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -60,20 +81,6 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "public_properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_rental_request_id_fkey"
-            columns: ["rental_request_id"]
-            isOneToOne: false
-            referencedRelation: "public_rental_requests"
             referencedColumns: ["id"]
           },
           {
@@ -91,104 +98,134 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
-          role: string
         }
         Insert: {
           created_at?: string
           full_name?: string | null
           id: string
           phone?: string | null
-          role?: string
         }
         Update: {
           created_at?: string
           full_name?: string | null
           id?: string
           phone?: string | null
-          role?: string
         }
         Relationships: []
       }
       properties: {
         Row: {
+          amenities: string[]
           area_m2: number | null
           created_at: string
           description: string | null
           duration_months: number | null
           id: string
-          monthly_rent: number
+          images: string[]
+          max_guests: number | null
+          min_stay_days: number
+          monthly_rent: number | null
           municipality: string
+          nightly_price: number | null
           owner_id: string | null
+          owner_name: string | null
           property_type: string
+          rental_kind: string
+          rooms: number
           status: string
+          title: string
           wilaya: string
         }
         Insert: {
+          amenities?: string[]
           area_m2?: number | null
           created_at?: string
           description?: string | null
           duration_months?: number | null
           id?: string
-          monthly_rent: number
+          images?: string[]
+          max_guests?: number | null
+          min_stay_days?: number
+          monthly_rent?: number | null
           municipality: string
+          nightly_price?: number | null
           owner_id?: string | null
+          owner_name?: string | null
           property_type: string
+          rental_kind?: string
+          rooms?: number
           status?: string
+          title: string
           wilaya: string
         }
         Update: {
+          amenities?: string[]
           area_m2?: number | null
           created_at?: string
           description?: string | null
           duration_months?: number | null
           id?: string
-          monthly_rent?: number
+          images?: string[]
+          max_guests?: number | null
+          min_stay_days?: number
+          monthly_rent?: number | null
           municipality?: string
+          nightly_price?: number | null
           owner_id?: string | null
+          owner_name?: string | null
           property_type?: string
+          rental_kind?: string
+          rooms?: number
           status?: string
+          title?: string
           wilaya?: string
         }
         Relationships: []
       }
       rental_requests: {
         Row: {
+          author_name: string | null
           budget: number
-          contact_phone: string | null
           created_at: string
           duration_months: number | null
           id: string
           municipality: string | null
           property_type: string
           renter_id: string | null
+          rooms: number
           specifications: string | null
           status: string
+          title: string
           wilaya: string
         }
         Insert: {
+          author_name?: string | null
           budget: number
-          contact_phone?: string | null
           created_at?: string
           duration_months?: number | null
           id?: string
           municipality?: string | null
           property_type: string
           renter_id?: string | null
+          rooms?: number
           specifications?: string | null
           status?: string
+          title: string
           wilaya: string
         }
         Update: {
+          author_name?: string | null
           budget?: number
-          contact_phone?: string | null
           created_at?: string
           duration_months?: number | null
           id?: string
           municipality?: string | null
           property_type?: string
           renter_id?: string | null
+          rooms?: number
           specifications?: string | null
           status?: string
+          title?: string
           wilaya?: string
         }
         Relationships: []
@@ -198,30 +235,48 @@ export type Database = {
           check_in: string
           check_out: string
           created_at: string
+          fee: number
+          fee_payer: string | null
+          guest_name: string | null
+          guests_count: number
           id: string
+          notes: string | null
           property_id: string
-          status: string | null
+          status: string
           total_price: number
+          updated_at: string
           user_id: string
         }
         Insert: {
           check_in: string
           check_out: string
           created_at?: string
+          fee?: number
+          fee_payer?: string | null
+          guest_name?: string | null
+          guests_count?: number
           id?: string
+          notes?: string | null
           property_id: string
-          status?: string | null
-          total_price: number
+          status?: string
+          total_price?: number
+          updated_at?: string
           user_id: string
         }
         Update: {
           check_in?: string
           check_out?: string
           created_at?: string
+          fee?: number
+          fee_payer?: string | null
+          guest_name?: string | null
+          guests_count?: number
           id?: string
+          notes?: string | null
           property_id?: string
-          status?: string | null
+          status?: string
           total_price?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -230,13 +285,6 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "short_term_rentals_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "public_properties"
             referencedColumns: ["id"]
           },
         ]
@@ -261,91 +309,49 @@ export type Database = {
       }
     }
     Views: {
-      public_properties: {
-        Row: {
-          area_m2: number | null
-          created_at: string | null
-          description: string | null
-          duration_months: number | null
-          id: string | null
-          monthly_rent: number | null
-          municipality: string | null
-          property_type: string | null
-          status: string | null
-          wilaya: string | null
-        }
-        Insert: {
-          area_m2?: number | null
-          created_at?: string | null
-          description?: string | null
-          duration_months?: number | null
-          id?: string | null
-          monthly_rent?: number | null
-          municipality?: string | null
-          property_type?: string | null
-          status?: string | null
-          wilaya?: string | null
-        }
-        Update: {
-          area_m2?: number | null
-          created_at?: string | null
-          description?: string | null
-          duration_months?: number | null
-          id?: string | null
-          monthly_rent?: number | null
-          municipality?: string | null
-          property_type?: string | null
-          status?: string | null
-          wilaya?: string | null
-        }
-        Relationships: []
-      }
-      public_rental_requests: {
-        Row: {
-          budget: number | null
-          created_at: string | null
-          duration_months: number | null
-          id: string | null
-          municipality: string | null
-          property_type: string | null
-          specifications: string | null
-          status: string | null
-          wilaya: string | null
-        }
-        Insert: {
-          budget?: number | null
-          created_at?: string | null
-          duration_months?: number | null
-          id?: string | null
-          municipality?: string | null
-          property_type?: string | null
-          specifications?: string | null
-          status?: string | null
-          wilaya?: string | null
-        }
-        Update: {
-          budget?: number | null
-          created_at?: string | null
-          duration_months?: number | null
-          id?: string | null
-          municipality?: string | null
-          property_type?: string | null
-          specifications?: string | null
-          status?: string | null
-          wilaya?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
+      admin_delete_user: { Args: { p_user_id: string }; Returns: undefined }
+      admin_list_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_admin: boolean
+          phone: string
+        }[]
+      }
+      cancel_booking: { Args: { p_booking_id: string }; Returns: undefined }
+      cancel_deal: { Args: { p_deal_id: string }; Returns: undefined }
+      get_booking_contacts: {
+        Args: { p_booking_id: string }
+        Returns: {
+          guest_name: string
+          guest_phone: string
+          host_name: string
+          host_phone: string
+        }[]
+      }
       get_deal_contacts: {
         Args: { p_deal_id: string }
         Returns: {
-          property_phone: string
+          owner_name: string
+          owner_phone: string
+          renter_name: string
           renter_phone: string
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      is_party_of_property: { Args: { p_property: string }; Returns: boolean }
+      owns_property: { Args: { p_property: string }; Returns: boolean }
+      property_in_use: { Args: { p_property: string }; Returns: boolean }
+      request_deal: {
+        Args: { p_property_id: string; p_rental_request_id?: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
