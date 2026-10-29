@@ -1,0 +1,1 @@
+ALTER POLICY "Anyone can read settings" ON public.app_settings USING (key IN ('deal_fee', 'booking_fee'));

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ADVISOR_SYSTEM_INSTRUCTION, advisorInputSchema, buildAdvisorContents } from "./advisor-input";
 
 function resolveApiKey(): string | undefined {
   let key = process.env["GEMINI_API_KEY"] || process.env["API_KEY"];
@@ -152,47 +153,16 @@ ${propertyContext ? `\n\n📌 **بخصوص العقار المحدد:** ${proper
 هل ترغب في نصائح حول أسعار الإيجار الحالية في منطقة معينة، أم إرشادات حول الإجراءات والوثائق؟`;
 }
 
-export async function handleGeminiMapsChat(body: {
-  message: string;
-  history?: ChatMessage[];
-  wilaya?: string;
-  propertyContext?: string;
-}): Promise<Response> {
+export async function handleGeminiMapsChat(body: unknown): Promise<Response> {
+  const parsed = advisorInputSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ error: "بيانات الرسالة غير صالحة أو تتجاوز الحد المسموح." }, { status: 400 });
+  }
+  const { message, wilaya, propertyContext } = parsed.data;
   try {
-    const { message, history = [], wilaya, propertyContext } = body;
-    if (!message || typeof message !== "string") {
-      return new Response(JSON.stringify({ error: "Message is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
     const ai = getAiClient();
-
-    // Prepare system instruction tailored to Algerian Real Estate & Land
-    const systemInstruction = `أنت "مساعد منزلي وأرضي الذكي" — المستشار العقاري والجغرافي المتميز المتخصص في إيجار وشراء العقارات والأراضي في الجزائر عبر كامل ولاياتها الـ 69.
-مهمتك:
-1. الإجابة بدقة وسرعة باللغة العربية بأسلوب راقٍ، مهني، دقيق ومباشر.
-2. تقديم معلومات جغرافية دقيقة عن المدن والأحياء الجزائرية، المواصلات (المترو، الترامواي، القطار، حافلات إيتوزا)، الطرق السريعة والمرافق الحيوية.
-3. شرح قوانين العقار الجزائري (العقد التوثيقي الإلزامي، الدفتر العقاري، تسوية البنايات 15-08، كراء الأراضي الفلاحية، والشقق المؤقتة السياحية).
-4. الرد بأسلوب منسق مع نقاط وفقرات واضحة ومهذبة.
-${wilaya ? `الولاية المحددة حاليًا: ${wilaya}.` : ""}
-${propertyContext ? `سياق العقار المعروض: ${propertyContext}` : ""}`;
-
-    // Convert history to Gemini format
-    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
-
-    for (const h of history.slice(-6)) {
-      contents.push({
-        role: h.role === "assistant" || h.role === "model" ? "model" : "user",
-        parts: [{ text: h.text }],
-      });
-    }
-
-    contents.push({
-      role: "user",
-      parts: [{ text: message }],
-    });
+    const systemInstruction = ADVISOR_SYSTEM_INSTRUCTION;
+    const contents = buildAdvisorContents(parsed.data);
 
     let resultText = "";
 
@@ -260,9 +230,9 @@ ${propertyContext ? `سياق العقار المعروض: ${propertyContext}` :
     console.error("Gemini Advisor Server Error:", error);
     // Never fail with 500 — always return an expert response
     const fallbackText = getIntelligentFallbackReply(
-      body?.message || "",
-      body?.wilaya,
-      body?.propertyContext,
+      message,
+      wilaya,
+      propertyContext,
     );
     return new Response(
       JSON.stringify({
