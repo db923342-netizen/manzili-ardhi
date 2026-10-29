@@ -16,28 +16,11 @@ export function useSession() {
   return { session, user: session?.user ?? null, ready };
 }
 
-/** Admin status check from database function is_admin(), profile role, or admin email. */
+/** Admin status comes only from the database function is_admin(). */
 export async function checkIsAdmin(): Promise<boolean> {
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const user = sessionData?.session?.user;
-    if (
-      user?.email &&
-      (user.email === "db923342@gmail.com" || user.email.toLowerCase().includes("admin"))
-    ) {
-      return true;
-    }
     const { data, error } = await supabase.rpc("is_admin");
-    if (!error && data === true) return true;
-    if (user?.id) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (profile?.role === "admin") return true;
-    }
-    return false;
+    return !error && data === true;
   } catch {
     return false;
   }
