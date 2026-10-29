@@ -228,7 +228,7 @@ function Admin() {
     try {
       await supabase
         .from("deals")
-        .update({ contacts_released: true, completed: true })
+        .update({ status: "completed" })
         .eq("id", id);
       setDeals((old) =>
         old.map((d) => (d.id === id ? { ...d, s: "مكتملة ومكشوفة الأرقام", paid: true } : d)),
