@@ -362,8 +362,9 @@ export const propertiesQuery = queryOptions({
 
     try {
       const { data, error } = await supabase
-        .from("public_properties")
+        .from("properties")
         .select("*")
+        .eq("status", "approved")
         .order("created_at", { ascending: false });
 
       if (!error && data && data.length > 0) {
@@ -413,8 +414,9 @@ export const requestsQuery = queryOptions({
 
     try {
       const { data, error } = await supabase
-        .from("public_rental_requests")
+        .from("rental_requests")
         .select("*")
+        .eq("status", "open")
         .order("created_at", { ascending: false });
 
       if (!error && data && data.length > 0) {
@@ -571,7 +573,7 @@ export const adminUsersQuery = queryOptions({
             n: u.full_name || `مستخدم ${i + 1}`,
             e: `${u.id.slice(0, 8)}@user.dz`,
             phone: u.phone || getDeterministicPhone(u.id, "0770"),
-            role: u.role === "admin" ? "مدير" : "مستخدم",
+            role: "مستخدم",
             s: "نشط",
           }))
           .filter((u) => !deleted.has(u.id));
