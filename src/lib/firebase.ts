@@ -62,15 +62,12 @@ export async function signInWithGoogle() {
       const userRef = doc(db, "users", cred.user.uid);
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
-        const isAdmin =
-          cred.user.email === "db923342@gmail.com" ||
-          cred.user.email?.toLowerCase().includes("admin");
         await setDoc(userRef, {
           id: cred.user.uid,
           email: cred.user.email || "",
           displayName: cred.user.displayName || "مستخدم جديد",
           photoURL: cred.user.photoURL || "",
-          role: isAdmin ? "admin" : "user",
+          role: "user",
           createdAt: new Date().toISOString(),
         });
       }
@@ -96,13 +93,11 @@ export async function signInWithFirebaseEmail(email: string, pass: string) {
 export async function registerWithFirebaseEmail(email: string, pass: string, name?: string) {
   const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
   if (cred.user) {
-    const isAdmin =
-      cred.user.email === "db923342@gmail.com" || cred.user.email?.toLowerCase().includes("admin");
     await setDoc(doc(db, "users", cred.user.uid), {
       id: cred.user.uid,
       email: cred.user.email || "",
       displayName: name || "مستخدم جديد",
-      role: isAdmin ? "admin" : "user",
+      role: "user",
       createdAt: new Date().toISOString(),
     });
   }
