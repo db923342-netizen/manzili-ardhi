@@ -447,9 +447,25 @@ export type AdminUser = {
   phone: string;
   role: string;
   s: string;
+  wilaya?: string;
+  createdAt?: string;
+  listingsCount?: number;
+  hasPublished?: boolean;
 };
 
-const defaultAdminUsers: AdminUser[] = [
+export const defaultAdminUsers: AdminUser[] = [
+  {
+    id: "u-admin",
+    n: "المدير العام (إدارة المنصة)",
+    e: "db923342@gmail.com",
+    phone: "0550 00 11 22",
+    role: "مدير",
+    s: "نشط",
+    wilaya: "الجزائر",
+    createdAt: "2024-01-01",
+    listingsCount: 4,
+    hasPublished: true,
+  },
   {
     id: "u-1",
     n: "أحمد بن علي",
@@ -457,6 +473,10 @@ const defaultAdminUsers: AdminUser[] = [
     phone: "0550 41 82 93",
     role: "مستخدم",
     s: "نشط",
+    wilaya: "الجزائر",
+    createdAt: "2024-02-15",
+    listingsCount: 1,
+    hasPublished: true,
   },
   {
     id: "u-2",
@@ -465,6 +485,10 @@ const defaultAdminUsers: AdminUser[] = [
     phone: "0661 74 29 11",
     role: "مستخدم",
     s: "نشط",
+    wilaya: "الجزائر",
+    createdAt: "2024-03-02",
+    listingsCount: 1,
+    hasPublished: true,
   },
   {
     id: "u-3",
@@ -473,6 +497,10 @@ const defaultAdminUsers: AdminUser[] = [
     phone: "0770 19 38 47",
     role: "مستخدم",
     s: "نشط",
+    wilaya: "وهران",
+    createdAt: "2024-03-20",
+    listingsCount: 1,
+    hasPublished: true,
   },
   {
     id: "u-4",
@@ -481,6 +509,70 @@ const defaultAdminUsers: AdminUser[] = [
     phone: "0560 33 22 11",
     role: "مستخدم",
     s: "نشط",
+    wilaya: "قسنطينة",
+    createdAt: "2024-04-10",
+    listingsCount: 0,
+    hasPublished: false,
+  },
+  {
+    id: "u-5",
+    n: "عبد الرزاق عماري",
+    e: "a.ammari@gmail.com",
+    phone: "0671 88 44 20",
+    role: "مستخدم",
+    s: "نشط",
+    wilaya: "سطيف",
+    createdAt: "2024-04-18",
+    listingsCount: 0,
+    hasPublished: false,
+  },
+  {
+    id: "u-6",
+    n: "ياسمين شريف",
+    e: "yasmine.cherif@gmail.com",
+    phone: "0552 14 36 98",
+    role: "مستخدم",
+    s: "نشط",
+    wilaya: "البليدة",
+    createdAt: "2024-04-22",
+    listingsCount: 0,
+    hasPublished: false,
+  },
+  {
+    id: "u-7",
+    n: "مصطفى زروقي",
+    e: "m.zerrouki@outlook.com",
+    phone: "0792 65 11 30",
+    role: "مستخدم",
+    s: "نشط",
+    wilaya: "تلمسان",
+    createdAt: "2024-04-28",
+    listingsCount: 0,
+    hasPublished: false,
+  },
+  {
+    id: "u-8",
+    n: "حمزة بوزيد",
+    e: "hamza.bouzid@gmail.com",
+    phone: "0664 90 12 75",
+    role: "مستخدم",
+    s: "نشط",
+    wilaya: "عنابة",
+    createdAt: "2024-05-01",
+    listingsCount: 0,
+    hasPublished: false,
+  },
+  {
+    id: "u-9",
+    n: "صوفيا لعربي",
+    e: "sofia.larbi@yahoo.com",
+    phone: "0559 21 80 44",
+    role: "مستخدم",
+    s: "نشط",
+    wilaya: "وهران",
+    createdAt: "2024-05-04",
+    listingsCount: 0,
+    hasPublished: false,
   },
 ];
 
@@ -488,30 +580,115 @@ export const adminUsersQuery = queryOptions({
   queryKey: ["admin_users"],
   queryFn: async (): Promise<AdminUser[]> => {
     const deleted = getDeletedUserIds();
+    const userMap = new Map<string, AdminUser>();
 
+    // 1. Seed with default users (both publishers and non-publishers)
+    for (const u of defaultAdminUsers) {
+      if (!deleted.has(u.id)) {
+        userMap.set(u.id, { ...u });
+      }
+    }
+
+    // 2. Fetch properties to calculate listings per user from Supabase
+    const propCountMap = new Map<string, number>();
     try {
-      const { data, error } = await supabase
+      const { data: propsData } = await supabase.from("properties").select("owner_id");
+      if (propsData) {
+        for (const p of propsData) {
+          if (p.owner_id) {
+            propCountMap.set(p.owner_id, (propCountMap.get(p.owner_id) || 0) + 1);
+          }
+        }
+      }
+    } catch {
+      // Tolerate if properties table query fails
+    }
+
+    // 3. Query Supabase profiles
+    try {
+      const { data: profiles, error } = await supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        return data
-          .map((u, i) => ({
+      if (!error && profiles && profiles.length > 0) {
+        for (let i = 0; i < profiles.length; i++) {
+          const u = profiles[i];
+          if (deleted.has(u.id)) continue;
+          const count = propCountMap.get(u.id) || 0;
+          userMap.set(u.id, {
             id: u.id,
-            n: u.full_name || `مستخدم ${i + 1}`,
+            n: u.full_name || `مستخدم مسجل (${u.id.slice(0, 6)})`,
             e: `${u.id.slice(0, 8)}@user.dz`,
             phone: u.phone || getDeterministicPhone(u.id, "0770"),
             role: u.role === "admin" ? "مدير" : "مستخدم",
             s: "نشط",
-          }))
-          .filter((u) => !deleted.has(u.id));
+            wilaya: "الجزائر",
+            createdAt: u.created_at ? u.created_at.split("T")[0] : "2024-05-01",
+            listingsCount: count,
+            hasPublished: count > 0,
+          });
+        }
       }
     } catch {
       // Ignore
     }
 
-    return defaultAdminUsers.filter((u) => !deleted.has(u.id));
+    // 4. Query Firebase Firestore users collection
+    try {
+      const { getUsersFromFirestore } = await import("./firebase");
+      const firestoreUsers = await getUsersFromFirestore();
+      for (const fu of firestoreUsers) {
+        if (deleted.has(fu.id)) continue;
+        const existing = userMap.get(fu.id);
+        const count = existing?.listingsCount || propCountMap.get(fu.id) || 0;
+        userMap.set(fu.id, {
+          id: fu.id,
+          n: fu.displayName || existing?.n || "مستخدم مسجل",
+          e: fu.email || existing?.e || `user-${fu.id.slice(0, 6)}@manzili.dz`,
+          phone: fu.phone || existing?.phone || getDeterministicPhone(fu.id, "0661"),
+          role: fu.role === "admin" ? "مدير" : existing?.role || "مستخدم",
+          s: existing?.s || "نشط",
+          wilaya: fu.wilaya || existing?.wilaya || "الجزائر",
+          createdAt: fu.createdAt
+            ? fu.createdAt.split("T")[0]
+            : existing?.createdAt || "2024-05-01",
+          listingsCount: count,
+          hasPublished: count > 0,
+        });
+      }
+    } catch {
+      // Ignore
+    }
+
+    // 5. Check currently logged in Supabase user to ensure the admin & active user are present
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData.user && !deleted.has(authData.user.id)) {
+        const authUser = authData.user;
+        const meta = authUser.user_metadata || {};
+        const isAdmin = authUser.email === "db923342@gmail.com";
+        const count = propCountMap.get(authUser.id) || 0;
+        userMap.set(authUser.id, {
+          id: authUser.id,
+          n: (meta.full_name as string) || (isAdmin ? "المدير العام (أدمن المنصة)" : "مستخدم مسجل"),
+          e: authUser.email || "user@manzili.dz",
+          phone:
+            (meta.phone as string) ||
+            (isAdmin ? "0550 00 11 22" : getDeterministicPhone(authUser.id, "0550")),
+          role: isAdmin ? "مدير" : "مستخدم",
+          s: "نشط",
+          wilaya: "الجزائر",
+          createdAt: authUser.created_at ? authUser.created_at.split("T")[0] : "2024-05-01",
+          listingsCount: count,
+          hasPublished: count > 0,
+        });
+      }
+    } catch {
+      // Ignore
+    }
+
+    return Array.from(userMap.values());
   },
 });
 
@@ -598,6 +775,12 @@ export async function executeDeleteUser(userId: string, queryClient: QueryClient
     await supabase.from("profiles").delete().eq("id", userId);
   } catch {
     // Supabase error tolerated
+  }
+  try {
+    const { deleteUserFromFirestore } = await import("./firebase");
+    await deleteUserFromFirestore(userId);
+  } catch {
+    // Firestore error tolerated
   }
   queryClient.setQueryData<AdminUser[]>(adminUsersQuery.queryKey, (old = []) =>
     old.filter((item) => item.id !== userId),

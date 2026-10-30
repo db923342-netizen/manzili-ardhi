@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Lock, CheckCircle2, Loader2 } from "lucide-react";
+import { Lock, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
 import { PageTitle, Field, inputCls, btnGold, WilayaCommune, TypeSelect } from "@/components/site";
 import { executeCreateRequest } from "@/lib/listings";
 import { toast } from "sonner";
@@ -115,7 +115,7 @@ function NewRequest() {
 
           <TypeSelect value={propertyType} onChange={(e) => setPropertyType(e.target.value)} />
 
-          <Field label="الميزانية القصوى (د.ج / شهر)">
+          <Field label="السعر (د.ج)">
             <input
               type="number"
               required
@@ -124,6 +124,16 @@ function NewRequest() {
               className={inputCls}
               placeholder="مثال: 30000"
             />
+            <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-200">
+              <AlertTriangle
+                size={15}
+                className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
+              />
+              <span>
+                <b>تنبيه إجباري:</b> يُشترط إجبارياً وضع السعر الحقيقي والفعلي للمعاملة، وإلا سيتم
+                حذف الطلب مباشرة من طرف المدير.
+              </span>
+            </div>
           </Field>
 
           {/* خانة رقم هاتف صاحب الطلب */}

@@ -72,7 +72,7 @@ function Detail() {
         </p>
         <div className="grid grid-cols-2 gap-3 rounded-xl bg-secondary p-4 text-sm">
           <span>
-            الميزانية القصوى: <b>{formatDA(r.budget)}</b>
+            السعر: <b>{formatDA(r.budget)}</b>
           </span>
           <span>
             عدد الغرف: <b>{r.rooms}</b>

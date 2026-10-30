@@ -265,4 +265,46 @@ export async function deleteTemporaryRentalFromFirestore(rentalId: string) {
   }
 }
 
+export interface FirestoreUserRecord {
+  id: string;
+  email?: string;
+  displayName?: string;
+  phone?: string;
+  role?: string;
+  createdAt?: string;
+  wilaya?: string;
+  photoURL?: string;
+}
+
+export async function getUsersFromFirestore(): Promise<FirestoreUserRecord[]> {
+  try {
+    const snap = await getDocs(collection(db, "users"));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        email: (data.email as string) || "",
+        displayName: (data.displayName as string) || (data.name as string) || "مستخدم مسجل",
+        phone: (data.phone as string) || "",
+        role: (data.role as string) || "user",
+        createdAt: (data.createdAt as string) || "",
+        wilaya: (data.wilaya as string) || "الجزائر",
+        photoURL: (data.photoURL as string) || "",
+      };
+    });
+  } catch (err) {
+    console.warn("Could not fetch users from Firestore:", err);
+    return [];
+  }
+}
+
+export async function deleteUserFromFirestore(userId: string) {
+  try {
+    const uRef = doc(db, "users", userId);
+    await deleteDoc(uRef);
+  } catch (err) {
+    console.warn("Could not delete user from Firestore:", err);
+  }
+}
+
 export type { FirebaseUser };

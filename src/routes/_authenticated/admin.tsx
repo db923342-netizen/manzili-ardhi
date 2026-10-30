@@ -13,6 +13,12 @@ import {
   ShieldCheck,
   Clock,
   Calendar,
+  Search,
+  UserCheck,
+  UserX,
+  MapPin,
+  Mail,
+  User,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -174,15 +180,55 @@ function Admin() {
   const { data: initialUsers = [], isLoading: usersLoading } = useQuery(adminUsersQuery);
 
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [userFilter, setUserFilter] = useState<"all" | "unposted" | "posted" | "admin">("all");
+  const [userSearch, setUserSearch] = useState("");
 
   useEffect(() => {
-    if (initialUsers.length > 0 && users.length === 0) {
-      setUsers(initialUsers);
+    if (initialUsers.length > 0) {
+      setUsers((prev) => {
+        if (prev.length === 0) return initialUsers;
+        const prevStatusMap = new Map(prev.map((u) => [u.id, u.s]));
+        return initialUsers.map((u) => ({
+          ...u,
+          s: prevStatusMap.get(u.id) || u.s,
+        }));
+      });
     }
-  }, [initialUsers, users.length]);
+  }, [initialUsers]);
 
   const properties = propertiesData;
   const requests = requestsData;
+  const currentUsers = users.length > 0 ? users : initialUsers;
+
+  const filteredUsers = currentUsers.filter((u) => {
+    if (userSearch.trim()) {
+      const q = userSearch.trim().toLowerCase();
+      const match =
+        u.n.toLowerCase().includes(q) ||
+        u.e.toLowerCase().includes(q) ||
+        u.phone.includes(q) ||
+        (u.wilaya && u.wilaya.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    if (userFilter === "unposted") {
+      return !u.hasPublished && (!u.listingsCount || u.listingsCount === 0);
+    }
+    if (userFilter === "posted") {
+      return !!u.hasPublished || (typeof u.listingsCount === "number" && u.listingsCount > 0);
+    }
+    if (userFilter === "admin") {
+      return u.role === "مدير";
+    }
+    return true;
+  });
+
+  const unpostedUsersCount = currentUsers.filter(
+    (u) => !u.hasPublished && (!u.listingsCount || u.listingsCount === 0),
+  ).length;
+  const postedUsersCount = currentUsers.filter(
+    (u) => !!u.hasPublished || (typeof u.listingsCount === "number" && u.listingsCount > 0),
+  ).length;
+  const adminUsersCount = currentUsers.filter((u) => u.role === "مدير").length;
 
   // إجراء قبول العقار
   async function handleApproveProperty(p: Property) {
@@ -252,10 +298,7 @@ function Admin() {
   async function handleApproveDeal(id: string) {
     setLoadingId(`deal-app-${id}`);
     try {
-      await supabase
-        .from("deals")
-        .update({ status: "completed" })
-        .eq("id", id);
+      await supabase.from("deals").update({ status: "completed" }).eq("id", id);
       setDeals((old) =>
         old.map((d) => (d.id === id ? { ...d, s: "مكتملة ومكشوفة الأرقام", paid: true } : d)),
       );
@@ -315,7 +358,7 @@ function Admin() {
       props: properties.length,
       reqs: requests.length,
       temp: tempBookings.length,
-      users: users.length,
+      users: currentUsers.length,
     }[tab] === 0;
 
   async function handleConfirmBooking(booking: FirestoreTemporaryBooking) {
@@ -440,7 +483,7 @@ function Admin() {
                   props: properties.length,
                   reqs: requests.length,
                   temp: tempBookings.length,
-                  users: users.length || initialUsers.length,
+                  users: currentUsers.length,
                 }[k]
               }
             </span>
@@ -455,11 +498,8 @@ function Admin() {
         {tab === "reqs" && reqsLoading && (
           <p className="py-10 text-center text-muted-foreground">جارٍ تحميل الطلبات...</p>
         )}
-        {tab === "users" && usersLoading && users.length === 0 && (
-          <p className="py-10 text-center text-muted-foreground">جارٍ تحميل المستخدمين...</p>
-        )}
 
-        {empty && !propsLoading && !reqsLoading && !usersLoading && (
+        {tab !== "users" && empty && !propsLoading && !reqsLoading && (
           <p className="py-10 text-center text-muted-foreground">
             لا توجد بيانات حالياً في هذا القسم.
           </p>
@@ -643,8 +683,7 @@ function Admin() {
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">
                       {r.wilaya} {r.commune ? `• ${r.commune}` : ""} • صاحب الطلب:{" "}
-                      <b className="text-foreground">{r.author}</b> • الميزانية:{" "}
-                      {formatDA(r.budget)}
+                      <b className="text-foreground">{r.author}</b> • السعر: {formatDA(r.budget)}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
@@ -771,64 +810,263 @@ function Admin() {
             </Row>
           ))}
 
-        {/* قسم المستخدمين مع إظهار أرقام هواتفهم غير مخفية للأدمن */}
-        {tab === "users" &&
-          (users.length > 0 ? users : initialUsers).map((u) => (
-            <Row
-              key={u.id || u.e}
-              title={u.n}
-              sub={
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">
-                    البريد:{" "}
-                    <span dir="ltr" className="font-mono text-foreground font-semibold">
-                      {u.e}
-                    </span>{" "}
-                    • الصلاحية: <b className="text-primary">{u.role}</b>
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                      <Phone size={13} className="text-emerald-600" />
-                      رقم الهاتف (غير مخفي عن الأدمن):
-                      <a
-                        href={`tel:${u.phone.replace(/\s+/g, "")}`}
-                        dir="ltr"
-                        className="font-mono font-bold underline hover:text-emerald-600"
-                      >
-                        {u.phone}
-                      </a>
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      (محمي ومخفي عن باقي المستخدمين)
-                    </span>
-                  </div>
-                </div>
-              }
-              status={u.s}
-            >
-              <button
-                type="button"
-                onClick={() => handleToggleUser(u.id)}
-                className={`${btn} bg-secondary hover:bg-secondary/80`}
-              >
-                {u.s === "نشط" ? "إيقاف الحساب" : "تفعيل الحساب"}
-              </button>
-              <button
-                type="button"
-                disabled={loadingId === `del-user-${u.id}`}
-                onClick={() => handleDeleteUser(u.id)}
-                className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
-                title="حذف حساب هذا المستخدم نهائياً"
-              >
-                {loadingId === `del-user-${u.id}` ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Trash2 size={13} />
+        {/* قسم المستخدمين النشط: يعرض قائمة حسابات كافة المستخدمين ومعلوماتهم للأدمن فقط حتى لو لم ينشروا شيء بعد */}
+        {tab === "users" && (
+          <div className="space-y-4">
+            {/* تنبيه خصوصية وحصرية للأدمن فقط */}
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs leading-relaxed text-emerald-950 dark:text-emerald-200">
+              <ShieldCheck
+                size={20}
+                className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+              />
+              <div>
+                <p className="font-bold text-sm">سجل حسابات المستخدمين (خاص بالأدمن فقط):</p>
+                <p className="mt-1">
+                  تعرض هذه اللوحة <b>كافة الحسابات المسجلة في المنصة</b> وبياناتهم ومعلومات التواصل
+                  معهم كاملة،
+                  <b> حتى وإن لم يقوموا بنشر أي عقار أو طلب بعد</b>. تتيح لك الإدارة المباشرة
+                  للحسابات وتفعيلها أو إيقافها، والتواصل مع المستخدمين الجدد أو تقديم الدعم الفني
+                  لهم.
+                </p>
+              </div>
+            </div>
+
+            {/* إحصائيات سريعة للمستخدمين */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-xl border border-border bg-card p-3">
+                <span className="text-xs text-muted-foreground">إجمالي الحسابات المسجلة</span>
+                <p className="text-xl font-bold text-primary mt-1">{currentUsers.length}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-3">
+                <span className="text-xs text-muted-foreground">لم ينشروا أي عقار بعد</span>
+                <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                  {unpostedUsersCount}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-3">
+                <span className="text-xs text-muted-foreground">ناشرون (لديهم عروض)</span>
+                <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                  {postedUsersCount}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-3">
+                <span className="text-xs text-muted-foreground">المدراء والمشرفون</span>
+                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                  {adminUsersCount}
+                </p>
+              </div>
+            </div>
+
+            {/* شريط البحث والفرز */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative flex-1">
+                <Search size={15} className="absolute right-3 top-3 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="ابحث بالاسم، البريد الإلكتروني، رقم الهاتف أو الولاية..."
+                  className="w-full rounded-lg border border-border bg-card pr-9 pl-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {userSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setUserSearch("")}
+                    className="absolute left-3 top-2.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    مسح
+                  </button>
                 )}
-                حذف
-              </button>
-            </Row>
-          ))}
+              </div>
+
+              {/* أزرار التصفية */}
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    { id: "all", label: `الكل (${currentUsers.length})` },
+                    { id: "unposted", label: `لم ينشروا بعد (${unpostedUsersCount})` },
+                    { id: "posted", label: `ناشرون (${postedUsersCount})` },
+                    { id: "admin", label: `المدراء (${adminUsersCount})` },
+                  ] as const
+                ).map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setUserFilter(f.id)}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                      userFilter === f.id
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* قائمة المستخدمين */}
+            {usersLoading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 size={18} className="animate-spin ml-2" />
+                <span>جارٍ تحميل بيانات الحسابات...</span>
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center text-muted-foreground">
+                <UserX size={32} className="mx-auto mb-2 text-muted-foreground/60" />
+                <p className="font-semibold text-sm">
+                  لا توجد حسابات مطابقة لمعايير البحث أو التصفية.
+                </p>
+                <p className="text-xs mt-1">جرب تغيير كلمات البحث أو اختيار تبويب "الكل".</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredUsers.map((u) => {
+                  const isUnposted = !u.hasPublished && (!u.listingsCount || u.listingsCount === 0);
+                  const isUserAdmin = u.role === "مدير";
+
+                  return (
+                    <div
+                      key={u.id || u.e}
+                      className="rounded-xl border border-border bg-card p-4 transition hover:border-border/80 shadow-sm"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        {/* معلومات الحساب الأساسية */}
+                        <div className="space-y-2 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+                              {u.n.charAt(0) || "م"}
+                            </div>
+                            <span className="font-bold text-foreground text-sm">{u.n}</span>
+
+                            {/* شارة الدور */}
+                            {isUserAdmin ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-gold-soft px-2 py-0.5 text-[11px] font-bold text-gold-dark">
+                                <ShieldCheck size={12} />
+                                مدير المنصة
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground">
+                                <User size={12} />
+                                مستخدم
+                              </span>
+                            )}
+
+                            {/* شارة حالة النشر: هل نشر أم لم ينشر بعد */}
+                            {isUnposted ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                لم ينشر أي عقار بعد (حساب مسجل جديد)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                                ناشر ({u.listingsCount || 1} عقار منشور)
+                              </span>
+                            )}
+
+                            {/* شارة حالة الحساب */}
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                                u.s === "نشط"
+                                  ? "bg-emerald-500/15 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                  : "bg-destructive/15 text-destructive"
+                              }`}
+                            >
+                              {u.s}
+                            </span>
+                          </div>
+
+                          {/* تفاصيل الاتصال والولاية وتاريخ الانضمام */}
+                          <div className="grid grid-cols-1 gap-1.5 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-3 pt-1">
+                            {/* الهاتف ظاهر بالكامل للأدمن */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 rounded bg-emerald-600/15 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                <Phone size={12} className="text-emerald-600" />
+                                الهاتف:
+                                <a
+                                  href={`tel:${u.phone.replace(/\s+/g, "")}`}
+                                  dir="ltr"
+                                  className="font-mono font-bold underline hover:text-emerald-600"
+                                >
+                                  {u.phone}
+                                </a>
+                              </span>
+                            </div>
+
+                            {/* البريد الإلكتروني */}
+                            <div className="flex items-center gap-1.5">
+                              <Mail size={13} className="text-muted-foreground shrink-0" />
+                              <span>البريد:</span>
+                              <a
+                                href={`mailto:${u.e}`}
+                                dir="ltr"
+                                className="font-mono text-foreground font-semibold hover:underline"
+                              >
+                                {u.e}
+                              </a>
+                            </div>
+
+                            {/* الولاية وتاريخ التسجيل */}
+                            <div className="flex items-center gap-3">
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin size={12} className="text-gold" />
+                                {u.wilaya || "الجزائر"}
+                              </span>
+                              <span>•</span>
+                              <span className="inline-flex items-center gap-1">
+                                <Calendar size={12} />
+                                انضم في: {u.createdAt || "2024-05-01"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* أزرار الإجراءات الخاصة بالأدمن */}
+                        <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUser(u.id)}
+                            className={`${btn} ${
+                              u.s === "نشط"
+                                ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                : "bg-emerald-600 text-white hover:bg-emerald-700"
+                            }`}
+                          >
+                            {u.s === "نشط" ? (
+                              <>
+                                <UserX size={13} />
+                                إيقاف الحساب
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck size={13} />
+                                تفعيل الحساب
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={loadingId === `del-user-${u.id}`}
+                            onClick={() => handleDeleteUser(u.id)}
+                            className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
+                            title="حذف حساب هذا المستخدم نهائياً"
+                          >
+                            {loadingId === `del-user-${u.id}` ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={13} />
+                            )}
+                            حذف الحساب
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

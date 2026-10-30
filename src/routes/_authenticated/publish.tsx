@@ -10,6 +10,7 @@ import {
   Phone,
   Check,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { PageTitle, Field, inputCls, btnGold, WilayaCommune, TypeSelect } from "@/components/site";
 import { executeCreateTemporaryRental, executeCreateProperty } from "@/lib/listings";
@@ -249,7 +250,7 @@ function Publish() {
 
           {rentalMode === "temporary" ? (
             <>
-              <Field label="السعر بالليلة الواحدة (د.ج)">
+              <Field label="السعر (بالليلة الواحدة د.ج)">
                 <input
                   type="number"
                   required
@@ -286,7 +287,7 @@ function Publish() {
               </Field>
             </>
           ) : (
-            <Field label="السعر الشهري (د.ج)">
+            <Field label="السعر (د.ج)">
               <input
                 type="number"
                 required
@@ -297,6 +298,23 @@ function Publish() {
               />
             </Field>
           )}
+
+          {/* تنبيه إجباري بشأن السعر الحقيقي */}
+          <div className="md:col-span-2">
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+              <AlertTriangle
+                size={16}
+                className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400"
+              />
+              <div>
+                <b className="font-bold">تنبيه صارم من الإدارة بشأن السعر:</b>
+                <p className="mt-0.5">
+                  يُشترط إجبارياً وضع السعر الحقيقي والفعلي للمعاملة، وإلا سيتم حذف العرض مباشرة من
+                  طرف المدير.
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* خانة رقم هاتف صاحب العقار مع التوضيح الأمني */}
           <div className="md:col-span-2">

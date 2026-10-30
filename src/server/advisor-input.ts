@@ -26,10 +26,16 @@ export function buildAdvisorContents(input: z.infer<typeof advisorInputSchema>) 
   if (input.wilaya || input.propertyContext) {
     contents.push({
       role: "user",
-      parts: [{ text: JSON.stringify({ untrustedContext: {
-        wilaya: input.wilaya,
-        propertyContext: input.propertyContext,
-      } }) }],
+      parts: [
+        {
+          text: JSON.stringify({
+            untrustedContext: {
+              wilaya: input.wilaya,
+              propertyContext: input.propertyContext,
+            },
+          }),
+        },
+      ],
     });
   }
   contents.push({ role: "user", parts: [{ text: input.message }] });

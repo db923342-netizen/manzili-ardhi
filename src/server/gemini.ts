@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { ADVISOR_SYSTEM_INSTRUCTION, advisorInputSchema, buildAdvisorContents } from "./advisor-input";
+import {
+  ADVISOR_SYSTEM_INSTRUCTION,
+  advisorInputSchema,
+  buildAdvisorContents,
+} from "./advisor-input";
 
 function resolveApiKey(): string | undefined {
   let key = process.env["GEMINI_API_KEY"] || process.env["API_KEY"];
@@ -156,7 +160,10 @@ ${propertyContext ? `\n\n📌 **بخصوص العقار المحدد:** ${proper
 export async function handleGeminiMapsChat(body: unknown): Promise<Response> {
   const parsed = advisorInputSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: "بيانات الرسالة غير صالحة أو تتجاوز الحد المسموح." }, { status: 400 });
+    return Response.json(
+      { error: "بيانات الرسالة غير صالحة أو تتجاوز الحد المسموح." },
+      { status: 400 },
+    );
   }
   const { message, wilaya, propertyContext } = parsed.data;
   try {
@@ -229,11 +236,7 @@ export async function handleGeminiMapsChat(body: unknown): Promise<Response> {
   } catch (error) {
     console.error("Gemini Advisor Server Error:", error);
     // Never fail with 500 — always return an expert response
-    const fallbackText = getIntelligentFallbackReply(
-      message,
-      wilaya,
-      propertyContext,
-    );
+    const fallbackText = getIntelligentFallbackReply(message, wilaya, propertyContext);
     return new Response(
       JSON.stringify({
         reply: fallbackText,

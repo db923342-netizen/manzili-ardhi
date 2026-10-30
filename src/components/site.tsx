@@ -537,7 +537,7 @@ export function RequestCard({ r }: { r: RentalRequest }) {
         {r.commune}، {r.wilaya}
       </p>
       <p className="mt-3 text-sm">
-        الميزانية: <b className="text-primary">{formatDA(r.budget)}</b>
+        السعر: <b className="text-primary">{formatDA(r.budget)}</b>
       </p>
     </Link>
   );
