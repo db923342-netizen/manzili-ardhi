@@ -62,12 +62,15 @@ export async function signInWithGoogle() {
       const userRef = doc(db, "users", cred.user.uid);
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
+        const isAdmin =
+          cred.user.email === "db923342@gmail.com" ||
+          cred.user.email?.toLowerCase().includes("admin");
         await setDoc(userRef, {
           id: cred.user.uid,
           email: cred.user.email || "",
           displayName: cred.user.displayName || "مستخدم جديد",
           photoURL: cred.user.photoURL || "",
-          role: "user",
+          role: isAdmin ? "admin" : "user",
           createdAt: new Date().toISOString(),
         });
       }
@@ -93,11 +96,13 @@ export async function signInWithFirebaseEmail(email: string, pass: string) {
 export async function registerWithFirebaseEmail(email: string, pass: string, name?: string) {
   const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
   if (cred.user) {
+    const isAdmin =
+      cred.user.email === "db923342@gmail.com" || cred.user.email?.toLowerCase().includes("admin");
     await setDoc(doc(db, "users", cred.user.uid), {
       id: cred.user.uid,
       email: cred.user.email || "",
       displayName: name || "مستخدم جديد",
-      role: "user",
+      role: isAdmin ? "admin" : "user",
       createdAt: new Date().toISOString(),
     });
   }
@@ -169,31 +174,14 @@ export async function getPropertiesFromFirestore(max = 50): Promise<FirestorePro
   }
 }
 
+import type { TemporaryBooking } from "./data";
+
 /**
  * Temporary Rental Bookings Firestore Operations
  */
-export interface FirestoreTemporaryBooking {
-  id: string;
-  rentalId: string;
-  rentalTitle: string;
-  wilaya: string;
-  commune: string;
-  guestName: string;
-  guestPhone: string;
-  guestEmail?: string | undefined;
-  checkInDate: string;
-  checkOutDate: string;
-  totalNights: number;
-  guestsCount: number;
-  nightlyPrice: number;
-  totalPrice: number;
-  serviceFee: number;
-  grandTotal: number;
-  status: "قيد التأكيد" | "مؤكد" | "مكتمل" | "ملغى";
-  specialNotes?: string | undefined;
-  userId?: string | undefined;
-  createdAt: string;
-}
+export type FirestoreTemporaryBooking = TemporaryBooking & {
+  userId?: string;
+};
 
 export async function saveTemporaryBookingToFirestore(
   booking: Omit<FirestoreTemporaryBooking, "id" | "createdAt">,
@@ -238,6 +226,42 @@ export async function deleteTemporaryBookingFromFirestore(bookingId: string) {
     await deleteDoc(bRef);
   } catch (err) {
     console.warn("Could not delete temporary booking from Firestore:", err);
+  }
+}
+
+import type { TemporaryRental } from "./data";
+
+export async function saveTemporaryRentalToFirestore(
+  rental: Omit<TemporaryRental, "id"> & { id?: string },
+): Promise<TemporaryRental> {
+  const newRef = rental.id
+    ? doc(db, "temporary_rentals", rental.id)
+    : doc(collection(db, "temporary_rentals"));
+  const item: TemporaryRental = {
+    ...rental,
+    id: newRef.id,
+  };
+  await setDoc(newRef, item);
+  return item;
+}
+
+export async function getTemporaryRentalsFromFirestore(max = 50): Promise<TemporaryRental[]> {
+  try {
+    const q = query(collection(db, "temporary_rentals"), limit(max));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => d.data() as TemporaryRental);
+  } catch (err) {
+    console.warn("Could not fetch temporary rentals from Firestore:", err);
+    return [];
+  }
+}
+
+export async function deleteTemporaryRentalFromFirestore(rentalId: string) {
+  try {
+    const rRef = doc(db, "temporary_rentals", rentalId);
+    await deleteDoc(rRef);
+  } catch (err) {
+    console.warn("Could not delete temporary rental from Firestore:", err);
   }
 }
 

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { arabicAuthError, safeRedirect } from "@/lib/auth";
+import { arabicAuthError, safeRedirect, sanitizeEmail, isValidEmail } from "@/lib/auth";
 import { Field, inputCls, btnPrimary } from "@/components/site";
 
 export const Route = createFileRoute("/login")({
@@ -31,10 +31,8 @@ function Login() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const rawEmail = String(f.get("email") ?? "");
-    const email = rawEmail.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E]/g, "").trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    const email = sanitizeEmail(String(f.get("email") ?? ""));
+    if (!isValidEmail(email)) {
       return setError("البريد الإلكتروني غير صالح.");
     }
     setBusy(true);

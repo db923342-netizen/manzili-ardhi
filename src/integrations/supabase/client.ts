@@ -58,15 +58,18 @@ function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)
   // Fall back to process.env for SSR (server-side rendering)
   const SUPABASE_URL =
-    import.meta.env["VITE_SUPABASE_URL"] ||
+    (typeof import.meta !== "undefined" && import.meta.env?.["VITE_SUPABASE_URL"]) ||
     process.env["SUPABASE_URL"] ||
     "https://pvcamhciwpfharnrbsij.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY =
-    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+    (typeof import.meta !== "undefined" && import.meta.env?.["VITE_SUPABASE_PUBLISHABLE_KEY"]) ||
     process.env["SUPABASE_PUBLISHABLE_KEY"] ||
     "sb_publishable_placeholder_token";
 
-  if (!import.meta.env["VITE_SUPABASE_URL"] && !process.env["SUPABASE_URL"]) {
+  if (
+    !(typeof import.meta !== "undefined" && import.meta.env?.["VITE_SUPABASE_URL"]) &&
+    !process.env["SUPABASE_URL"]
+  ) {
     console.warn("[Supabase] Environment variables missing. Using fallback project configuration.");
   }
 

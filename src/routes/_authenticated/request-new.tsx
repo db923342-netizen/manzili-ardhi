@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Lock, CheckCircle2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Lock, CheckCircle2, Loader2 } from "lucide-react";
 import { PageTitle, Field, inputCls, btnGold, WilayaCommune, TypeSelect } from "@/components/site";
+import { executeCreateRequest } from "@/lib/listings";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/request-new")({
   head: () => ({
@@ -16,16 +19,56 @@ export const Route = createFileRoute("/_authenticated/request-new")({
 });
 
 function NewRequest() {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [propertyType, setPropertyType] = useState("شقة");
+  const [budget, setBudget] = useState("");
   const [w, setW] = useState("");
   const [c, setC] = useState("");
   const [phone, setPhone] = useState("");
+  const [rooms, setRooms] = useState("3");
+  const [duration, setDuration] = useState("سنة (12 شهر)");
+  const [details, setDetails] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!w || !c) {
+      toast.error("يرجى تحديد الولاية والبلدية أولاً.");
+      return;
+    }
+    if (!phone || phone.trim().length < 9) {
+      toast.error("يرجى إدخال رقم هاتف جزائري صحيح.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const res = await executeCreateRequest(
+      {
+        title: title.trim() || `مطلوب ${propertyType} في ${w}`,
+        propertyType,
+        wilaya: w,
+        commune: c,
+        budget: Number(budget) || 30000,
+        rooms: Number(rooms) || 3,
+        duration,
+        details: details.trim() || "مطلوب سكن مريح ومناسب.",
+        phone: phone.trim(),
+      },
+      queryClient,
+    );
+
+    setIsSubmitting(false);
+    toast.success("تم نشر طلبك بنجاح وأصبح متاحاً فوراً للملاك والباحثين!");
+    setSubmitted(true);
+  }
 
   return (
     <>
       <PageTitle
         title="انشر طلب بحث عن عقار للإيجار"
-        sub="صف ما تبحث عنه وسيقترح عليك الملاك عقاراتهم. رقم هاتفك محمي ولا يظهر إلا للمالك المعني."
+        sub="صف ما تبحث عنه وسيقترح عليك الملاك عقاراتهم. رقم هاتفك محمي ولا يظهر إلا للمالك المعني بعد موافقة الإدارة."
       />
       {submitted ? (
         <div className="mx-auto -mt-6 max-w-xl rounded-2xl bg-card p-8 text-center shadow-card">
@@ -38,11 +81,16 @@ function NewRequest() {
             <span dir="ltr" className="font-mono font-bold text-primary">
               {phone}
             </span>
-            ). سيتلقى طلبك عروض الملاك، ورقمك سيبقى محميًا ومخفيًا حتى الاتفاق المتبادل وموافقة
-            الإدارة.
+            ). أصبح طلبك متاحاً وظاهراً فوراً لجميع الملاك والمستخدمين، ورقمك سيبقى محميًا ومخفيًا
+            حتى الاتفاق المتبادل وموافقة الإدارة.
           </p>
           <button
-            onClick={() => setSubmitted(false)}
+            onClick={() => {
+              setSubmitted(false);
+              setTitle("");
+              setBudget("");
+              setDetails("");
+            }}
             className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground hover:opacity-90"
           >
             نشر طلب آخر
@@ -50,20 +98,32 @@ function NewRequest() {
         </div>
       ) : (
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSubmitted(true);
-          }}
+          onSubmit={handleSubmit}
           className="mx-auto -mt-6 grid max-w-3xl gap-4 rounded-2xl bg-card p-6 shadow-card md:grid-cols-2"
         >
           <div className="md:col-span-2">
             <Field label="عنوان الطلب">
-              <input required className={inputCls} placeholder="مثال: أبحث عن شقة F3 للكراء" />
+              <input
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={inputCls}
+                placeholder="مثال: أبحث عن شقة F3 للكراء للعائلة"
+              />
             </Field>
           </div>
-          <TypeSelect />
+
+          <TypeSelect value={propertyType} onChange={(e) => setPropertyType(e.target.value)} />
+
           <Field label="الميزانية القصوى (د.ج / شهر)">
-            <input type="number" required className={inputCls} placeholder="مثال: 30000" />
+            <input
+              type="number"
+              required
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              className={inputCls}
+              placeholder="مثال: 30000"
+            />
           </Field>
 
           {/* خانة رقم هاتف صاحب الطلب */}
@@ -91,29 +151,59 @@ function NewRequest() {
             </Field>
           </div>
 
-          <WilayaCommune wilaya={w} setWilaya={setW} commune={c} setCommune={setC} />
+          <WilayaCommune
+            wilaya={w}
+            setWilaya={setW}
+            commune={c}
+            setCommune={setC}
+            required={true}
+          />
           <Field label="عدد الغرف">
-            <input type="number" min={1} className={inputCls} placeholder="مثال: 3" />
+            <input
+              type="number"
+              min={1}
+              value={rooms}
+              onChange={(e) => setRooms(e.target.value)}
+              className={inputCls}
+              placeholder="مثال: 3"
+            />
           </Field>
           <Field label="مدة الإيجار">
-            <select className={inputCls}>
-              <option>سنة (12 شهر)</option>
-              <option>6 أشهر</option>
-              <option>أكثر من سنة</option>
-              <option>أقل من 6 أشهر</option>
+            <select
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className={inputCls}
+            >
+              <option value="سنة (12 شهر)">سنة (12 شهر)</option>
+              <option value="6 أشهر">6 أشهر</option>
+              <option value="أكثر من سنة">أكثر من سنة</option>
+              <option value="أقل من 6 أشهر">أقل من 6 أشهر</option>
             </select>
           </Field>
           <div className="md:col-span-2">
             <Field label="تفاصيل ومواصفات إضافية">
               <textarea
                 rows={4}
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
                 className={inputCls}
                 placeholder="صف العقار المطلوب: التجهيزات المرغوبة، الطابق المفضل، الحي السكني، القرب من المواصلات..."
               />
             </Field>
           </div>
-          <button type="submit" className={`${btnGold} md:col-span-2`}>
-            نشر الطلب
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`${btnGold} md:col-span-2 flex items-center justify-center gap-2`}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>جارٍ النشر...</span>
+              </>
+            ) : (
+              "نشر الطلب مجاناً"
+            )}
           </button>
         </form>
       )}

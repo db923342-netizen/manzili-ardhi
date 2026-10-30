@@ -1270,12 +1270,63 @@ export const wilayasRecord: Record<string, string[]> = wilayasList.reduce(
 );
 
 /**
- * دالة استرجاع بلديات ولاية معينة
+ * دالة البحث المرن عن الولاية بالكود، أو الاسم العربي، أو الاسم اللاتيني
  */
-export function getCommunesForWilaya(wilayaName: string): string[] {
-  if (!wilayaName) return [];
-  // ابحث بالاسم المباشر أو بالكود
-  const clean = wilayaName.replace(/^\d+\s*[-–]\s*/, "").trim();
-  const match = wilayasList.find((w) => w.nameAr === clean || w.name === clean);
-  return match?.communes ?? wilayasRecord[clean] ?? [];
+export function findWilaya(query: string | number | undefined | null): WilayaInfo | undefined {
+  if (!query) return undefined;
+  const str = String(query).trim();
+  if (!str) return undefined;
+
+  // 1. بحث بالرقم المباشر كود الولاية (01 إلى 69)
+  const num = parseInt(str, 10);
+  if (!isNaN(num) && num >= 1 && num <= 69 && /^\d+$/.test(str)) {
+    const code = String(num).padStart(2, "0");
+    const byCode = wilayasList.find((w) => w.code === code);
+    if (byCode) return byCode;
+  }
+
+  // 2. فحص ما إذا كانت القيمة تبدأ برقم ولاية متبوعاً بشرطة مثل: "16 - الجزائر"
+  const prefixMatch = str.match(/^(\d{1,2})\s*[-–:]\s*(.+)$/);
+  if (prefixMatch) {
+    const code = String(parseInt(prefixMatch[1], 10)).padStart(2, "0");
+    const byCode = wilayasList.find((w) => w.code === code);
+    if (byCode) return byCode;
+  }
+
+  // 3. تنظيف السلسلة من الرموز والبادئات
+  const clean = str
+    .replace(/^\d+\s*[-–:]\s*/, "")
+    .trim()
+    .toLowerCase();
+
+  // 4. مطابقة تامة أو تقريبية
+  return wilayasList.find((w) => {
+    const ar = w.nameAr.toLowerCase();
+    const en = w.name.toLowerCase();
+    return ar === clean || en === clean || ar.includes(clean) || clean.includes(ar);
+  });
+}
+
+/**
+ * دالة توحيد اسم الولاية لتطابق الاسم العربي القياسي
+ */
+export function normalizeWilayaName(query: string | undefined | null): string {
+  if (!query) return "";
+  const found = findWilaya(query);
+  return found ? found.nameAr : String(query).trim();
+}
+
+/**
+ * دالة استرجاع بلديات ولاية معينة بكافة الصيغ والأنماط
+ */
+export function getCommunesForWilaya(wilayaQuery: string | undefined | null): string[] {
+  if (!wilayaQuery) return [];
+  const found = findWilaya(wilayaQuery);
+  if (found && Array.isArray(found.communes) && found.communes.length > 0) {
+    return found.communes;
+  }
+  const clean = String(wilayaQuery)
+    .replace(/^\d+\s*[-–:]\s*/, "")
+    .trim();
+  return wilayasRecord[clean] ?? [];
 }

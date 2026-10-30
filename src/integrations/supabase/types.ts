@@ -1,486 +1,468 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.18"
-  }
+    PostgrestVersion: "14.18";
+  };
   public: {
     Tables: {
-      app_settings: {
-        Row: {
-          key: string
-          updated_at: string
-          value: number
-        }
-        Insert: {
-          key: string
-          updated_at?: string
-          value: number
-        }
-        Update: {
-          key?: string
-          updated_at?: string
-          value?: number
-        }
-        Relationships: []
-      }
       deals: {
         Row: {
-          created_at: string
-          fee: number
-          fee_payer: string | null
-          id: string
-          monthly_rent: number
-          property_id: string
-          rental_request_id: string | null
-          renter_id: string
-          renter_name: string | null
-          requested_by: string
-          status: string
-          updated_at: string
-        }
+          completed: boolean;
+          contacts_released: boolean;
+          created_at: string;
+          id: string;
+          initial_fee: number;
+          initial_fee_payer: string;
+          monthly_fee: number;
+          monthly_fee_payer: string;
+          monthly_rent: number;
+          property_id: string | null;
+          rental_request_id: string | null;
+        };
         Insert: {
-          created_at?: string
-          fee?: number
-          fee_payer?: string | null
-          id?: string
-          monthly_rent: number
-          property_id: string
-          rental_request_id?: string | null
-          renter_id: string
-          renter_name?: string | null
-          requested_by: string
-          status?: string
-          updated_at?: string
-        }
+          completed?: boolean;
+          contacts_released?: boolean;
+          created_at?: string;
+          id?: string;
+          initial_fee: number;
+          initial_fee_payer: string;
+          monthly_fee: number;
+          monthly_fee_payer: string;
+          monthly_rent: number;
+          property_id?: string | null;
+          rental_request_id?: string | null;
+        };
         Update: {
-          created_at?: string
-          fee?: number
-          fee_payer?: string | null
-          id?: string
-          monthly_rent?: number
-          property_id?: string
-          rental_request_id?: string | null
-          renter_id?: string
-          renter_name?: string | null
-          requested_by?: string
-          status?: string
-          updated_at?: string
-        }
+          completed?: boolean;
+          contacts_released?: boolean;
+          created_at?: string;
+          id?: string;
+          initial_fee?: number;
+          initial_fee_payer?: string;
+          monthly_fee?: number;
+          monthly_fee_payer?: string;
+          monthly_rent?: number;
+          property_id?: string | null;
+          rental_request_id?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "deals_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
+            foreignKeyName: "deals_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "deals_rental_request_id_fkey"
-            columns: ["rental_request_id"]
-            isOneToOne: false
-            referencedRelation: "rental_requests"
-            referencedColumns: ["id"]
+            foreignKeyName: "deals_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "public_properties";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+          {
+            foreignKeyName: "deals_rental_request_id_fkey";
+            columns: ["rental_request_id"];
+            isOneToOne: false;
+            referencedRelation: "public_rental_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deals_rental_request_id_fkey";
+            columns: ["rental_request_id"];
+            isOneToOne: false;
+            referencedRelation: "rental_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
-          created_at: string
-          full_name: string | null
-          id: string
-          phone: string | null
-        }
+          created_at: string;
+          full_name: string | null;
+          id: string;
+          phone: string | null;
+          role: string;
+        };
         Insert: {
-          created_at?: string
-          full_name?: string | null
-          id: string
-          phone?: string | null
-        }
+          created_at?: string;
+          full_name?: string | null;
+          id: string;
+          phone?: string | null;
+          role?: string;
+        };
         Update: {
-          created_at?: string
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          full_name?: string | null;
+          id?: string;
+          phone?: string | null;
+          role?: string;
+        };
+        Relationships: [];
+      };
       properties: {
         Row: {
-          amenities: string[]
-          area_m2: number | null
-          created_at: string
-          description: string | null
-          duration_months: number | null
-          id: string
-          images: string[]
-          max_guests: number | null
-          min_stay_days: number
-          monthly_rent: number | null
-          municipality: string
-          nightly_price: number | null
-          owner_id: string | null
-          owner_name: string | null
-          property_type: string
-          rental_kind: string
-          rooms: number
-          status: string
-          title: string
-          wilaya: string
-        }
+          area_m2: number | null;
+          created_at: string;
+          description: string | null;
+          duration_months: number | null;
+          id: string;
+          monthly_rent: number;
+          municipality: string;
+          owner_id: string | null;
+          property_type: string;
+          status: string;
+          wilaya: string;
+        };
         Insert: {
-          amenities?: string[]
-          area_m2?: number | null
-          created_at?: string
-          description?: string | null
-          duration_months?: number | null
-          id?: string
-          images?: string[]
-          max_guests?: number | null
-          min_stay_days?: number
-          monthly_rent?: number | null
-          municipality: string
-          nightly_price?: number | null
-          owner_id?: string | null
-          owner_name?: string | null
-          property_type: string
-          rental_kind?: string
-          rooms?: number
-          status?: string
-          title: string
-          wilaya: string
-        }
+          area_m2?: number | null;
+          created_at?: string;
+          description?: string | null;
+          duration_months?: number | null;
+          id?: string;
+          monthly_rent: number;
+          municipality: string;
+          owner_id?: string | null;
+          property_type: string;
+          status?: string;
+          wilaya: string;
+        };
         Update: {
-          amenities?: string[]
-          area_m2?: number | null
-          created_at?: string
-          description?: string | null
-          duration_months?: number | null
-          id?: string
-          images?: string[]
-          max_guests?: number | null
-          min_stay_days?: number
-          monthly_rent?: number | null
-          municipality?: string
-          nightly_price?: number | null
-          owner_id?: string | null
-          owner_name?: string | null
-          property_type?: string
-          rental_kind?: string
-          rooms?: number
-          status?: string
-          title?: string
-          wilaya?: string
-        }
-        Relationships: []
-      }
+          area_m2?: number | null;
+          created_at?: string;
+          description?: string | null;
+          duration_months?: number | null;
+          id?: string;
+          monthly_rent?: number;
+          municipality?: string;
+          owner_id?: string | null;
+          property_type?: string;
+          status?: string;
+          wilaya?: string;
+        };
+        Relationships: [];
+      };
       rental_requests: {
         Row: {
-          author_name: string | null
-          budget: number
-          created_at: string
-          duration_months: number | null
-          id: string
-          municipality: string | null
-          property_type: string
-          renter_id: string | null
-          rooms: number
-          specifications: string | null
-          status: string
-          title: string
-          wilaya: string
-        }
+          budget: number;
+          contact_phone: string | null;
+          created_at: string;
+          duration_months: number | null;
+          id: string;
+          municipality: string | null;
+          property_type: string;
+          renter_id: string | null;
+          specifications: string | null;
+          status: string;
+          wilaya: string;
+        };
         Insert: {
-          author_name?: string | null
-          budget: number
-          created_at?: string
-          duration_months?: number | null
-          id?: string
-          municipality?: string | null
-          property_type: string
-          renter_id?: string | null
-          rooms?: number
-          specifications?: string | null
-          status?: string
-          title: string
-          wilaya: string
-        }
+          budget: number;
+          contact_phone?: string | null;
+          created_at?: string;
+          duration_months?: number | null;
+          id?: string;
+          municipality?: string | null;
+          property_type: string;
+          renter_id?: string | null;
+          specifications?: string | null;
+          status?: string;
+          wilaya: string;
+        };
         Update: {
-          author_name?: string | null
-          budget?: number
-          created_at?: string
-          duration_months?: number | null
-          id?: string
-          municipality?: string | null
-          property_type?: string
-          renter_id?: string | null
-          rooms?: number
-          specifications?: string | null
-          status?: string
-          title?: string
-          wilaya?: string
-        }
-        Relationships: []
-      }
-      short_term_rentals: {
-        Row: {
-          check_in: string
-          check_out: string
-          created_at: string
-          fee: number
-          fee_payer: string | null
-          guest_name: string | null
-          guests_count: number
-          id: string
-          notes: string | null
-          property_id: string
-          status: string
-          total_price: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          check_in: string
-          check_out: string
-          created_at?: string
-          fee?: number
-          fee_payer?: string | null
-          guest_name?: string | null
-          guests_count?: number
-          id?: string
-          notes?: string | null
-          property_id: string
-          status?: string
-          total_price?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          check_in?: string
-          check_out?: string
-          created_at?: string
-          fee?: number
-          fee_payer?: string | null
-          guest_name?: string | null
-          guests_count?: number
-          id?: string
-          notes?: string | null
-          property_id?: string
-          status?: string
-          total_price?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "short_term_rentals_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+          budget?: number;
+          contact_phone?: string | null;
+          created_at?: string;
+          duration_months?: number | null;
+          id?: string;
+          municipality?: string | null;
+          property_type?: string;
+          renter_id?: string | null;
+          specifications?: string | null;
+          status?: string;
+          wilaya?: string;
+        };
+        Relationships: [];
+      };
       user_roles: {
         Row: {
-          created_at: string
-          role: string
-          user_id: string
-        }
+          created_at: string;
+          role: string;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          role?: string
-          user_id: string
-        }
+          created_at?: string;
+          role?: string;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-    }
+          created_at?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      short_term_rentals: {
+        Row: {
+          check_in: string | null;
+          check_out: string | null;
+          created_at: string;
+          id: string;
+          property_id: string;
+          status: string;
+          total_price: number;
+          user_id: string | null;
+        };
+        Insert: {
+          check_in?: string | null;
+          check_out?: string | null;
+          created_at?: string;
+          id?: string;
+          property_id: string;
+          status?: string;
+          total_price: number;
+          user_id?: string | null;
+        };
+        Update: {
+          check_in?: string | null;
+          check_out?: string | null;
+          created_at?: string;
+          id?: string;
+          property_id?: string;
+          status?: string;
+          total_price?: number;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "short_term_rentals_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "short_term_rentals_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "public_properties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+    };
     Views: {
-      [_ in never]: never
-    }
+      public_properties: {
+        Row: {
+          area_m2: number | null;
+          created_at: string | null;
+          description: string | null;
+          duration_months: number | null;
+          id: string | null;
+          monthly_rent: number | null;
+          municipality: string | null;
+          property_type: string | null;
+          status: string | null;
+          wilaya: string | null;
+        };
+        Insert: {
+          area_m2?: number | null;
+          created_at?: string | null;
+          description?: string | null;
+          duration_months?: number | null;
+          id?: string | null;
+          monthly_rent?: number | null;
+          municipality?: string | null;
+          property_type?: string | null;
+          status?: string | null;
+          wilaya?: string | null;
+        };
+        Update: {
+          area_m2?: number | null;
+          created_at?: string | null;
+          description?: string | null;
+          duration_months?: number | null;
+          id?: string | null;
+          monthly_rent?: number | null;
+          municipality?: string | null;
+          property_type?: string | null;
+          status?: string | null;
+          wilaya?: string | null;
+        };
+        Relationships: [];
+      };
+      public_rental_requests: {
+        Row: {
+          budget: number | null;
+          created_at: string | null;
+          duration_months: number | null;
+          id: string | null;
+          municipality: string | null;
+          property_type: string | null;
+          specifications: string | null;
+          status: string | null;
+          wilaya: string | null;
+        };
+        Insert: {
+          budget?: number | null;
+          created_at?: string | null;
+          duration_months?: number | null;
+          id?: string | null;
+          municipality?: string | null;
+          property_type?: string | null;
+          specifications?: string | null;
+          status?: string | null;
+          wilaya?: string | null;
+        };
+        Update: {
+          budget?: number | null;
+          created_at?: string | null;
+          duration_months?: number | null;
+          id?: string | null;
+          municipality?: string | null;
+          property_type?: string | null;
+          specifications?: string | null;
+          status?: string | null;
+          wilaya?: string | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
-      admin_delete_user: { Args: { p_user_id: string }; Returns: undefined }
-      admin_list_users: {
-        Args: never
-        Returns: {
-          created_at: string
-          email: string
-          full_name: string
-          id: string
-          is_admin: boolean
-          phone: string
-        }[]
-      }
-      cancel_booking: { Args: { p_booking_id: string }; Returns: undefined }
-      cancel_deal: { Args: { p_deal_id: string }; Returns: undefined }
-      get_booking_contacts: {
-        Args: { p_booking_id: string }
-        Returns: {
-          guest_name: string
-          guest_phone: string
-          host_name: string
-          host_phone: string
-        }[]
-      }
       get_deal_contacts: {
-        Args: { p_deal_id: string }
+        Args: { p_deal_id: string };
         Returns: {
-          owner_name: string
-          owner_phone: string
-          renter_name: string
-          renter_phone: string
-        }[]
-      }
-      is_admin: { Args: never; Returns: boolean }
-      is_party_of_property: { Args: { p_property: string }; Returns: boolean }
-      owns_property: { Args: { p_property: string }; Returns: boolean }
-      property_in_use: { Args: { p_property: string }; Returns: boolean }
-      request_deal: {
-        Args: { p_property_id: string; p_rental_request_id?: string }
-        Returns: string
-      }
-    }
+          property_phone: string;
+          renter_phone: string;
+        }[];
+      };
+      is_admin: { Args: never; Returns: boolean };
+    };
     Enums: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
       }
       ? R
       : never
-    : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+        Insert: infer I;
       }
       ? I
       : never
-    : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+        Update: infer U;
       }
       ? U
       : never
-    : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+    : never;
 
 export const Constants = {
   public: {
     Enums: {},
   },
-} as const
+} as const;

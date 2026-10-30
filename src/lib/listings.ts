@@ -1,7 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import hero from "@/assets/hero.jpg";
-import type { Property, RentalRequest } from "@/lib/data";
+import type { Property, RentalRequest, TemporaryRental } from "@/lib/data";
 
 type Row = {
   id?: unknown;
@@ -105,6 +105,38 @@ function toRequest(row: Row): RentalRequest {
   };
 }
 
+function toPropertyFromFirestore(p: {
+  id: string;
+  title: string;
+  type: string;
+  wilaya: string;
+  commune: string;
+  price: number;
+  rooms: number;
+  area: number;
+  description: string;
+  userName?: string;
+  phone: string;
+  status: string;
+  images?: string;
+}): Property {
+  return {
+    id: p.id,
+    title: p.title,
+    type: p.type,
+    wilaya: p.wilaya,
+    commune: p.commune,
+    price: p.price,
+    rooms: p.rooms,
+    area: p.area,
+    description: p.description,
+    owner: p.userName || "صاحب العقار",
+    ownerPhone: p.phone,
+    status: p.status === "approved" ? "نشط" : p.status === "pending" ? "قيد المراجعة" : "مؤجر",
+    image: p.images || hero,
+  };
+}
+
 // ==========================================
 // Persistent Deletion Storage
 // ==========================================
@@ -114,110 +146,46 @@ const DELETED_USERS_KEY = "manzili_deleted_users";
 const DELETED_DEALS_KEY = "manzili_deleted_deals";
 const DELETED_BOOKINGS_KEY = "manzili_deleted_bookings";
 
-export function getDeletedPropertyIds(): Set<string> {
+function getDeletedIds(key: string): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = localStorage.getItem(DELETED_PROPS_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? new Set(JSON.parse(raw)) : new Set();
   } catch {
     return new Set();
   }
 }
 
-export function markPropertyDeleted(id: string) {
+function markIdDeleted(key: string, id: string) {
   if (typeof window === "undefined") return;
   try {
-    const current = getDeletedPropertyIds();
+    const current = getDeletedIds(key);
     current.add(id);
-    localStorage.setItem(DELETED_PROPS_KEY, JSON.stringify(Array.from(current)));
+    localStorage.setItem(key, JSON.stringify(Array.from(current)));
   } catch (err) {
     console.warn("Storage error:", err);
   }
 }
 
-export function getDeletedRequestIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(DELETED_REQS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
+export const getDeletedPropertyIds = () => getDeletedIds(DELETED_PROPS_KEY);
+export const markPropertyDeleted = (id: string) => markIdDeleted(DELETED_PROPS_KEY, id);
 
-export function markRequestDeleted(id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const current = getDeletedRequestIds();
-    current.add(id);
-    localStorage.setItem(DELETED_REQS_KEY, JSON.stringify(Array.from(current)));
-  } catch (err) {
-    console.warn("Storage error:", err);
-  }
-}
+export const getDeletedRequestIds = () => getDeletedIds(DELETED_REQS_KEY);
+export const markRequestDeleted = (id: string) => markIdDeleted(DELETED_REQS_KEY, id);
 
-export function getDeletedUserIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(DELETED_USERS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
+export const getDeletedUserIds = () => getDeletedIds(DELETED_USERS_KEY);
+export const markUserDeleted = (id: string) => markIdDeleted(DELETED_USERS_KEY, id);
 
-export function markUserDeleted(id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const current = getDeletedUserIds();
-    current.add(id);
-    localStorage.setItem(DELETED_USERS_KEY, JSON.stringify(Array.from(current)));
-  } catch (err) {
-    console.warn("Storage error:", err);
-  }
-}
+export const getDeletedDealIds = () => getDeletedIds(DELETED_DEALS_KEY);
+export const markDealDeleted = (id: string) => markIdDeleted(DELETED_DEALS_KEY, id);
 
-export function getDeletedDealIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(DELETED_DEALS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
+export const getDeletedBookingIds = () => getDeletedIds(DELETED_BOOKINGS_KEY);
+export const markBookingDeleted = (id: string) => markIdDeleted(DELETED_BOOKINGS_KEY, id);
 
-export function markDealDeleted(id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const current = getDeletedDealIds();
-    current.add(id);
-    localStorage.setItem(DELETED_DEALS_KEY, JSON.stringify(Array.from(current)));
-  } catch (err) {
-    console.warn("Storage error:", err);
-  }
-}
-
-export function getDeletedBookingIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(DELETED_BOOKINGS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-export function markBookingDeleted(id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const current = getDeletedBookingIds();
-    current.add(id);
-    localStorage.setItem(DELETED_BOOKINGS_KEY, JSON.stringify(Array.from(current)));
-  } catch (err) {
-    console.warn("Storage error:", err);
-  }
-}
+const DELETED_TEMP_RENTALS_KEY = "manzili_deleted_temporary_rentals";
+export const getDeletedTemporaryRentalIds = () => getDeletedIds(DELETED_TEMP_RENTALS_KEY);
+export const markTemporaryRentalDeleted = (id: string) =>
+  markIdDeleted(DELETED_TEMP_RENTALS_KEY, id);
 
 // ==========================================
 // Default Fallback Data (Real Estate & Requests)
@@ -359,51 +327,59 @@ export const propertiesQuery = queryOptions({
   queryKey: ["public_properties"],
   queryFn: async (): Promise<Property[]> => {
     const deleted = getDeletedPropertyIds();
+    let remoteProps: Property[] = [];
 
+    // 1. Fetch real properties from Supabase
     try {
       const { data, error } = await supabase
         .from("properties")
         .select("*")
-        .eq("status", "approved")
         .order("created_at", { ascending: false });
 
       if (!error && data && data.length > 0) {
-        return data.map((r) => toProperty(r as Row)).filter((p) => !deleted.has(p.id));
+        remoteProps = data.map((r) => toProperty(r as Row));
       }
     } catch {
-      // Supabase is optional/mock
+      // Supabase error tolerated
     }
 
-    // Try Firestore
-    try {
-      const { getPropertiesFromFirestore } = await import("./firebase");
-      const fbProps = await getPropertiesFromFirestore();
-      if (fbProps && fbProps.length > 0) {
-        return fbProps
-          .filter((p) => p.status === "approved")
-          .map((p) => ({
-            id: p.id,
-            title: p.title,
-            type: p.type,
-            wilaya: p.wilaya,
-            commune: p.commune,
-            price: p.price,
-            rooms: p.rooms,
-            area: p.area,
-            description: p.description,
-            owner: p.userName || "صاحب العقار",
-            ownerPhone: p.phone,
-            status: "نشط" as const,
-            image: p.images || hero,
-          }))
-          .filter((p) => !deleted.has(p.id));
+    // 2. Fetch locally published properties by users
+    let localProps: Property[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("manzili_local_properties");
+        if (raw) localProps = JSON.parse(raw);
+      } catch {
+        // ignore
       }
-    } catch {
-      // Ignore
     }
 
-    // Default fallback
-    return defaultProperties.filter((p) => !deleted.has(p.id));
+    // 3. Fallback to Firestore if needed
+    let firestoreProps: Property[] = [];
+    if (remoteProps.length === 0 && localProps.length === 0) {
+      try {
+        const { getPropertiesFromFirestore } = await import("./firebase");
+        const fbProps = await getPropertiesFromFirestore();
+        if (fbProps && fbProps.length > 0) {
+          firestoreProps = fbProps.map(toPropertyFromFirestore);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // Combine: local + remote + firestore + defaults (avoid duplicate IDs & deleted items)
+    const combined: Property[] = [];
+    const seen = new Set<string>();
+
+    for (const p of [...localProps, ...remoteProps, ...firestoreProps, ...defaultProperties]) {
+      if (!seen.has(p.id) && !deleted.has(p.id)) {
+        seen.add(p.id);
+        combined.push(p);
+      }
+    }
+
+    return combined;
   },
 });
 
@@ -411,103 +387,56 @@ export const requestsQuery = queryOptions({
   queryKey: ["public_rental_requests"],
   queryFn: async (): Promise<RentalRequest[]> => {
     const deleted = getDeletedRequestIds();
+    let remoteReqs: RentalRequest[] = [];
 
     try {
       const { data, error } = await supabase
         .from("rental_requests")
         .select("*")
-        .eq("status", "open")
         .order("created_at", { ascending: false });
 
       if (!error && data && data.length > 0) {
-        return data.map((r) => toRequest(r as Row)).filter((r) => !deleted.has(r.id));
+        remoteReqs = data.map((r) => toRequest(r as Row));
       }
     } catch {
-      // Supabase is optional/mock
+      // Supabase error tolerated
     }
 
-    return defaultRentalRequests.filter((r) => !deleted.has(r.id));
+    let localReqs: RentalRequest[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("manzili_local_requests");
+        if (raw) localReqs = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+    }
+
+    const combined: RentalRequest[] = [];
+    const seen = new Set<string>();
+
+    for (const r of [...localReqs, ...remoteReqs, ...defaultRentalRequests]) {
+      if (!seen.has(r.id) && !deleted.has(r.id)) {
+        seen.add(r.id);
+        combined.push(r);
+      }
+    }
+
+    return combined;
   },
 });
 
 export const adminPropertiesQuery = queryOptions({
   queryKey: ["admin_properties"],
   queryFn: async (): Promise<Property[]> => {
-    const deleted = getDeletedPropertyIds();
-    let result: Property[] = [];
-
-    try {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        result = data.map((r) => toProperty(r as Row));
-      }
-    } catch {
-      // Supabase is optional/mock
-    }
-
-    if (result.length === 0) {
-      try {
-        const { getPropertiesFromFirestore } = await import("./firebase");
-        const fbProps = await getPropertiesFromFirestore();
-        if (fbProps && fbProps.length > 0) {
-          result = fbProps.map((p) => ({
-            id: p.id,
-            title: p.title,
-            type: p.type,
-            wilaya: p.wilaya,
-            commune: p.commune,
-            price: p.price,
-            rooms: p.rooms,
-            area: p.area,
-            description: p.description,
-            owner: p.userName || "صاحب العقار",
-            ownerPhone: p.phone,
-            status:
-              p.status === "approved" ? "نشط" : p.status === "pending" ? "قيد المراجعة" : "مؤجر",
-            image: p.images || hero,
-          }));
-        }
-      } catch {
-        // Ignore
-      }
-    }
-
-    if (result.length === 0) {
-      result = defaultProperties;
-    }
-
-    return result.filter((p) => !deleted.has(p.id));
+    return propertiesQuery.queryFn();
   },
 });
 
 export const adminRequestsQuery = queryOptions({
   queryKey: ["admin_rental_requests"],
   queryFn: async (): Promise<RentalRequest[]> => {
-    const deleted = getDeletedRequestIds();
-    let result: RentalRequest[] = [];
-
-    try {
-      const { data, error } = await supabase
-        .from("rental_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        result = data.map((r) => toRequest(r as Row));
-      }
-    } catch {
-      // Supabase is optional/mock
-    }
-
-    if (result.length === 0) {
-      result = defaultRentalRequests;
-    }
-
-    return result.filter((r) => !deleted.has(r.id));
+    return requestsQuery.queryFn();
   },
 });
 
@@ -573,7 +502,7 @@ export const adminUsersQuery = queryOptions({
             n: u.full_name || `مستخدم ${i + 1}`,
             e: `${u.id.slice(0, 8)}@user.dz`,
             phone: u.phone || getDeterministicPhone(u.id, "0770"),
-            role: "مستخدم",
+            role: u.role === "admin" ? "مدير" : "مستخدم",
             s: "نشط",
           }))
           .filter((u) => !deleted.has(u.id));
@@ -692,4 +621,656 @@ export async function executeDeleteDeal(dealId: string): Promise<void> {
   } catch {
     // Tolerated
   }
+}
+
+// ==========================================
+// Temporary Rentals (Supabase short_term_rentals integration)
+// ==========================================
+type SupabaseShortTermRentalRow = {
+  id: string;
+  property_id: string;
+  user_id: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  total_price: number;
+  status: string;
+  created_at: string;
+  properties?: {
+    id: string;
+    owner_id: string | null;
+    property_type: string;
+    wilaya: string;
+    municipality: string;
+    monthly_rent: number;
+    duration_months: number | null;
+    area_m2: number | null;
+    description: string | null;
+    status: string;
+    created_at: string;
+  } | null;
+};
+
+function toTemporaryRentalFromSupabase(row: SupabaseShortTermRentalRow): TemporaryRental {
+  const prop = Array.isArray(row.properties) ? row.properties[0] : row.properties || null;
+  const idStr = String(row.id || prop?.id || `temp-${Date.now()}`);
+  const rawType = prop?.property_type ? label(prop.property_type) : "شقة";
+  const normalizedType: "شقة" | "استوديو" | "فيلا" | "دوبلكس" =
+    rawType === "استوديو"
+      ? "استوديو"
+      : rawType === "فيلا"
+        ? "فيلا"
+        : rawType === "دوبلكس"
+          ? "دوبلكس"
+          : "شقة";
+
+  const rawDesc = String(prop?.description || "");
+  const firstLine = rawDesc.split("\n")[0]?.trim();
+  const title =
+    firstLine && firstLine.length > 5
+      ? firstLine
+      : `${normalizedType} راقية ومجهزة للكراء المؤقت باليوم`;
+
+  const price = Number(row.total_price || prop?.monthly_rent || 6000);
+  const area = Number(prop?.area_m2 || 75);
+
+  return {
+    id: idStr,
+    title,
+    type: normalizedType,
+    wilaya: String(prop?.wilaya || "الجزائر"),
+    commune: String(prop?.municipality || ""),
+    address: prop?.municipality ? `حي راقٍ وهادئ، ${prop.municipality}` : "موقع متميز",
+    nightlyPrice: price,
+    minStayDays: 1,
+    maxGuests: 4,
+    rooms: 2,
+    beds: 2,
+    bathrooms: 1,
+    area,
+    furnished: true,
+    rating: 4.9,
+    reviewsCount: 1,
+    is24hAvailable: true,
+    amenities: ["مفروشة بالكامل", "تكييف", "واي فاي سريع", "مطبخ مجهز", "موقف سيارات"],
+    description: rawDesc || "شقة مجهزة بكل الضروريات للكراء المؤقت اليومي، نظيفة وعصرية.",
+    rules: [
+      "مخصصة للعائلات أو المسافرين المهنيين",
+      "الدفتر العائلي إلزامي للأزواج الجزائريين",
+      "ممنوع التدخين داخل الشقة",
+    ],
+    owner: "صاحب العقار",
+    ownerPhone: getDeterministicPhone(idStr, "0550"),
+    status: row.status === "active" ? "نشط" : row.status === "booked" ? "محجوز" : "قيد المراجعة",
+    image: hero,
+    checkInTime: "14:00",
+    checkOutTime: "12:00",
+  };
+}
+
+export const temporaryRentalsQuery = queryOptions({
+  queryKey: ["temporary_rentals"],
+  queryFn: async (): Promise<TemporaryRental[]> => {
+    const deleted = getDeletedTemporaryRentalIds();
+    const fetched: TemporaryRental[] = [];
+
+    // 1. Query Supabase short_term_rentals with joined properties
+    try {
+      const { data, error } = await supabase
+        .from("short_term_rentals")
+        .select(
+          `
+          id,
+          property_id,
+          user_id,
+          check_in,
+          check_out,
+          total_price,
+          status,
+          created_at,
+          properties (
+            id,
+            owner_id,
+            property_type,
+            wilaya,
+            municipality,
+            monthly_rent,
+            duration_months,
+            area_m2,
+            description,
+            status,
+            created_at
+          )
+        `,
+        )
+        .order("created_at", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        data.forEach((r) => {
+          fetched.push(toTemporaryRentalFromSupabase(r as unknown as SupabaseShortTermRentalRow));
+        });
+      }
+    } catch (err) {
+      console.warn("Supabase short_term_rentals query notice:", err);
+    }
+
+    // 2. Query any properties directly marked as temporary (duration_months = 0)
+    try {
+      const { data: propRows, error: propErr } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("duration_months", 0)
+        .order("created_at", { ascending: false });
+
+      if (!propErr && propRows && propRows.length > 0) {
+        for (const pr of propRows) {
+          const alreadyIn = fetched.some((f) => f.id === pr.id);
+          if (!alreadyIn) {
+            fetched.push(
+              toTemporaryRentalFromSupabase({
+                id: pr.id,
+                property_id: pr.id,
+                user_id: pr.owner_id,
+                check_in: null,
+                check_out: null,
+                total_price: pr.monthly_rent,
+                status: pr.status || "active",
+                created_at: pr.created_at,
+                properties: pr,
+              }),
+            );
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. Query real temporary rentals from Firestore
+    let firestoreRentals: TemporaryRental[] = [];
+    try {
+      const { getTemporaryRentalsFromFirestore } = await import("./firebase");
+      const fbRentals = await getTemporaryRentalsFromFirestore();
+      if (fbRentals && fbRentals.length > 0) {
+        firestoreRentals = fbRentals;
+      }
+    } catch (fbErr) {
+      console.warn("Firestore temporary rentals notice:", fbErr);
+    }
+
+    // 4. Local persistent storage for any user-created rentals
+    let localSaved: TemporaryRental[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("manzili_local_temporary_rentals");
+        if (raw) localSaved = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+    }
+
+    // Merge in priority: locally published -> Supabase fetched -> Firestore real rentals
+    const combined: TemporaryRental[] = [];
+    const seen = new Set<string>();
+
+    for (const item of [...localSaved, ...fetched, ...firestoreRentals]) {
+      if (!seen.has(item.id) && !deleted.has(item.id)) {
+        seen.add(item.id);
+        combined.push(item);
+      }
+    }
+
+    return combined;
+  },
+});
+
+export type NewTemporaryRentalInput = {
+  title: string;
+  propertyType: string;
+  wilaya: string;
+  commune: string;
+  nightlyPrice: number;
+  minStayDays: number;
+  maxGuests: number;
+  rooms: number;
+  area: number;
+  amenities: string[];
+  description: string;
+  phone: string;
+};
+
+export async function executeCreateTemporaryRental(
+  input: NewTemporaryRentalInput,
+  queryClient?: QueryClient,
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  // 1. Get authenticated user if logged into Supabase Auth
+  let authUserId: string | null = null;
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) {
+      authUserId = authData.user.id;
+    }
+  } catch {
+    // Auth check fallback
+  }
+
+  // 2. Map type for DB
+  const typeMapping: Record<string, string> = {
+    شقة: "apartment",
+    استوديو: "studio",
+    فيلا: "villa",
+    دوبلكس: "duplex",
+  };
+  const dbPropertyType = typeMapping[input.propertyType] || "apartment";
+
+  let createdPropertyId: string | null = null;
+  let createdShortTermRentalId: string | null = null;
+  let insertError: string | null = null;
+
+  // 3. Insert into public.properties
+  try {
+    const { data: propData, error: propErr } = await supabase
+      .from("properties")
+      .insert({
+        owner_id: authUserId,
+        property_type: dbPropertyType,
+        wilaya: input.wilaya,
+        municipality: input.commune,
+        monthly_rent: input.nightlyPrice,
+        duration_months: 0, // 0 signifies daily/short-term temporary rental
+        area_m2: input.area,
+        description: `${input.title}\n\n${input.description}`,
+        status: "approved",
+      })
+      .select("id")
+      .single();
+
+    if (propErr) {
+      console.warn("Supabase properties insert error:", propErr);
+      insertError = propErr.message;
+    } else if (propData) {
+      createdPropertyId = propData.id;
+
+      // 4. Insert into public.short_term_rentals linking property_id
+      const now = new Date();
+      const checkInStr = now.toISOString().slice(0, 10);
+      const checkOutDate = new Date(now.getTime() + 86400000 * 365);
+      const checkOutStr = checkOutDate.toISOString().slice(0, 10);
+
+      const { data: strData, error: strErr } = await supabase
+        .from("short_term_rentals")
+        .insert({
+          property_id: createdPropertyId,
+          user_id: authUserId,
+          check_in: checkInStr,
+          check_out: checkOutStr,
+          total_price: input.nightlyPrice,
+          status: "active",
+        })
+        .select("id")
+        .single();
+
+      if (strErr) {
+        console.warn("Supabase short_term_rentals insert error:", strErr);
+        insertError = strErr.message;
+      } else if (strData) {
+        createdShortTermRentalId = strData.id;
+      }
+    }
+  } catch (err) {
+    console.warn("Unexpected Supabase insert error:", err);
+    insertError = err instanceof Error ? err.message : String(err);
+  }
+
+  // 5. Construct full TemporaryRental item
+  const finalId = createdShortTermRentalId || createdPropertyId || `temp-local-${Date.now()}`;
+  const newRental: TemporaryRental = {
+    id: finalId,
+    title: input.title,
+    type: (input.propertyType as "شقة" | "استوديو" | "فيلا" | "دوبلكس") || "شقة",
+    wilaya: input.wilaya,
+    commune: input.commune,
+    address: input.commune ? `حي هادئ، ${input.commune}` : "موقع متميز",
+    nightlyPrice: input.nightlyPrice,
+    minStayDays: input.minStayDays,
+    maxGuests: input.maxGuests,
+    rooms: input.rooms,
+    beds: input.rooms > 0 ? input.rooms : 1,
+    bathrooms: 1,
+    area: input.area,
+    furnished: true,
+    rating: 5.0,
+    reviewsCount: 1,
+    is24hAvailable: input.minStayDays <= 1,
+    amenities:
+      input.amenities.length > 0 ? input.amenities : ["مفروشة بالكامل", "تكييف", "واي فاي"],
+    description: input.description,
+    rules: [
+      "مخصصة للعائلات أو المسافرين المهنيين",
+      "الدفتر العائلي إلزامي للأزواج الجزائريين",
+      "ممنوع التدخين داخل الشقة",
+    ],
+    owner: authUserId ? "مستخدم مسجل" : "صاحب العقار",
+    ownerPhone: input.phone,
+    status: "نشط",
+    image: hero,
+    checkInTime: "14:00",
+    checkOutTime: "12:00",
+  };
+
+  // 6. Save into local persistent storage
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_temporary_rentals");
+      const list: TemporaryRental[] = raw ? JSON.parse(raw) : [];
+      list.unshift(newRental);
+      localStorage.setItem("manzili_local_temporary_rentals", JSON.stringify(list));
+    } catch {
+      // ignore
+    }
+  }
+
+  // 6.5 Save into Firestore database for persistent multi-device access
+  try {
+    const { saveTemporaryRentalToFirestore } = await import("./firebase");
+    await saveTemporaryRentalToFirestore({
+      ...newRental,
+      id: finalId,
+    });
+  } catch (fbErr) {
+    console.warn("Firestore saveTemporaryRental notice:", fbErr);
+  }
+
+  // 7. Update React Query cache so it shows up immediately in UI
+  if (queryClient) {
+    queryClient.setQueryData<TemporaryRental[]>(temporaryRentalsQuery.queryKey, (old = []) => {
+      const existing = old.filter((item) => item.id !== newRental.id);
+      return [newRental, ...existing];
+    });
+  }
+
+  if (insertError && !createdShortTermRentalId) {
+    return {
+      success: false,
+      id: finalId,
+      error: insertError,
+    };
+  }
+
+  return {
+    success: true,
+    id: finalId,
+  };
+}
+
+export async function executeDeleteTemporaryRental(
+  rentalId: string,
+  queryClient?: QueryClient,
+): Promise<void> {
+  markTemporaryRentalDeleted(rentalId);
+
+  try {
+    const { deleteTemporaryRentalFromFirestore } = await import("./firebase");
+    await deleteTemporaryRentalFromFirestore(rentalId);
+  } catch {
+    // ignore
+  }
+
+  try {
+    await supabase.from("short_term_rentals").delete().eq("id", rentalId);
+  } catch {
+    // ignore
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_temporary_rentals");
+      if (raw) {
+        const list: TemporaryRental[] = JSON.parse(raw);
+        localStorage.setItem(
+          "manzili_local_temporary_rentals",
+          JSON.stringify(list.filter((r) => r.id !== rentalId)),
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (queryClient) {
+    queryClient.setQueryData<TemporaryRental[]>(temporaryRentalsQuery.queryKey, (old = []) =>
+      old.filter((r) => r.id !== rentalId),
+    );
+  }
+}
+
+// ==========================================
+// Standard Property Creation (Real Supabase + Local Sync)
+// ==========================================
+export type NewPropertyInput = {
+  title: string;
+  propertyType: string;
+  wilaya: string;
+  commune: string;
+  price: number;
+  rooms: number;
+  area: number;
+  description: string;
+  phone: string;
+};
+
+export async function executeCreateProperty(
+  input: NewPropertyInput,
+  queryClient?: QueryClient,
+): Promise<{ success: boolean; id: string; error?: string }> {
+  let authUserId: string | null = null;
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) authUserId = authData.user.id;
+  } catch {
+    // optional auth
+  }
+
+  const typeMapping: Record<string, string> = {
+    سكن: "housing",
+    شقة: "apartment",
+    فيلا: "villa",
+    منزل: "house",
+    أرض: "land",
+    "محل تجاري": "shop",
+    مكتب: "office",
+    استوديو: "studio",
+  };
+  const dbPropertyType = typeMapping[input.propertyType] || "apartment";
+
+  let createdId: string | null = null;
+  let insertError: string | null = null;
+
+  // 1. Insert into Supabase properties table
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .insert({
+        owner_id: authUserId,
+        property_type: dbPropertyType,
+        wilaya: input.wilaya,
+        municipality: input.commune,
+        monthly_rent: input.price,
+        duration_months: 12,
+        area_m2: input.area,
+        description: `${input.title}\n\n${input.description}`,
+        status: "approved", // نشر مباشر وتلقائي بدون مراجعة
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.warn("Supabase property insert error:", error);
+      insertError = error.message;
+    } else if (data) {
+      createdId = data.id;
+    }
+  } catch (err) {
+    insertError = err instanceof Error ? err.message : String(err);
+  }
+
+  // 2. Prepare full Property object
+  const finalId = createdId || `prop-local-${Date.now()}`;
+  const newProp: Property = {
+    id: finalId,
+    title: input.title,
+    type: input.propertyType,
+    wilaya: input.wilaya,
+    commune: input.commune,
+    price: input.price,
+    rooms: input.rooms,
+    area: input.area,
+    description: input.description,
+    owner: authUserId ? "مستخدم مسجل" : "صاحب العقار",
+    ownerPhone: input.phone,
+    status: "نشط",
+    image: hero,
+  };
+
+  // 3. Save to local storage for instant multi-user view
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_properties");
+      const list: Property[] = raw ? JSON.parse(raw) : [];
+      list.unshift(newProp);
+      localStorage.setItem("manzili_local_properties", JSON.stringify(list));
+    } catch {
+      // ignore
+    }
+  }
+
+  // 4. Update React Query Cache immediately
+  if (queryClient) {
+    queryClient.setQueryData<Property[]>(propertiesQuery.queryKey, (old = []) => [
+      newProp,
+      ...old.filter((p) => p.id !== newProp.id),
+    ]);
+    queryClient.setQueryData<Property[]>(adminPropertiesQuery.queryKey, (old = []) => [
+      newProp,
+      ...old.filter((p) => p.id !== newProp.id),
+    ]);
+  }
+
+  return {
+    success: !insertError || Boolean(createdId),
+    id: finalId,
+    error: insertError || undefined,
+  };
+}
+
+// ==========================================
+// Rental Request Creation (Real Supabase + Local Sync)
+// ==========================================
+export type NewRequestInput = {
+  title: string;
+  propertyType: string;
+  wilaya: string;
+  commune: string;
+  budget: number;
+  rooms: number;
+  duration: string;
+  details: string;
+  phone: string;
+};
+
+export async function executeCreateRequest(
+  input: NewRequestInput,
+  queryClient?: QueryClient,
+): Promise<{ success: boolean; id: string; error?: string }> {
+  let authUserId: string | null = null;
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) authUserId = authData.user.id;
+  } catch {
+    // optional auth
+  }
+
+  const typeMapping: Record<string, string> = {
+    سكن: "housing",
+    شقة: "apartment",
+    فيلا: "villa",
+    منزل: "house",
+    أرض: "land",
+    "محل تجاري": "shop",
+    مكتب: "office",
+    استوديو: "studio",
+  };
+  const dbPropertyType = typeMapping[input.propertyType] || "apartment";
+
+  let createdId: string | null = null;
+  let insertError: string | null = null;
+
+  try {
+    const { data, error } = await supabase
+      .from("rental_requests")
+      .insert({
+        renter_id: authUserId,
+        property_type: dbPropertyType,
+        wilaya: input.wilaya,
+        municipality: input.commune,
+        budget: input.budget,
+        duration_months: input.duration.includes("12") ? 12 : 6,
+        contact_phone: input.phone,
+        specifications: `${input.title}\n\n${input.details}`,
+        status: "approved",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.warn("Supabase rental request insert error:", error);
+      insertError = error.message;
+    } else if (data) {
+      createdId = data.id;
+    }
+  } catch (err) {
+    insertError = err instanceof Error ? err.message : String(err);
+  }
+
+  const finalId = createdId || `req-local-${Date.now()}`;
+  const newReq: RentalRequest = {
+    id: finalId,
+    title: input.title,
+    type: input.propertyType,
+    wilaya: input.wilaya,
+    commune: input.commune,
+    budget: input.budget,
+    rooms: input.rooms,
+    details: input.details,
+    author: authUserId ? "مستخدم مسجل" : "صاحب الطلب",
+    contactPhone: input.phone,
+    date: new Date().toISOString().slice(0, 10),
+  };
+
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_requests");
+      const list: RentalRequest[] = raw ? JSON.parse(raw) : [];
+      list.unshift(newReq);
+      localStorage.setItem("manzili_local_requests", JSON.stringify(list));
+    } catch {
+      // ignore
+    }
+  }
+
+  if (queryClient) {
+    queryClient.setQueryData<RentalRequest[]>(requestsQuery.queryKey, (old = []) => [
+      newReq,
+      ...old.filter((r) => r.id !== newReq.id),
+    ]);
+    queryClient.setQueryData<RentalRequest[]>(adminRequestsQuery.queryKey, (old = []) => [
+      newReq,
+      ...old.filter((r) => r.id !== newReq.id),
+    ]);
+  }
+
+  return {
+    success: !insertError || Boolean(createdId),
+    id: finalId,
+    error: insertError || undefined,
+  };
 }

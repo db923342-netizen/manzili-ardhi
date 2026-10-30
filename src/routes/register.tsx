@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { arabicAuthError } from "@/lib/auth";
+import { arabicAuthError, sanitizeEmail, isValidEmail } from "@/lib/auth";
 import { Field, inputCls, btnPrimary } from "@/components/site";
 
 export const Route = createFileRoute("/register")({
@@ -25,16 +25,8 @@ function Register() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const rawEmail = String(f.get("email") ?? "");
-    // إزالة أي رموز خفية لاتجاه النص (Unicode BiDi marks) والمسافات الزائدة
-    const email = rawEmail.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E]/g, "").trim();
-
-    // التعبير المنظم (Regex) الصحيح للتحقق من الإيميل والسماح بالنقطة بعد @
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    // تطبيق شرط التحقق على حقل البريد الإلكتروني
-    if (!emailRegex.test(email)) {
-      // إظهار رسالة خطأ صالحة أو منع الإرسال إذا كان الإيميل غير صالح فعلياً
+    const email = sanitizeEmail(String(f.get("email") ?? ""));
+    if (!isValidEmail(email)) {
       return setError("البريد الإلكتروني غير صالح.");
     }
 

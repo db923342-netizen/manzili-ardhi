@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, checkIsAdmin } from "@/lib/auth";
-import { useState, type ReactNode } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { Lock, Menu, X, MapPin, BedDouble, Ruler, Home, Phone, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -10,6 +10,8 @@ import {
   wilayas,
   wilayasList,
   getCommunesForWilaya,
+  findWilaya,
+  normalizeWilayaName,
   propertyTypes,
   type Property,
   type RentalRequest,
@@ -291,28 +293,61 @@ export function WilayaCommune({
   setWilaya,
   commune,
   setCommune,
+  allOption = false,
+  required = false,
+  disabled = false,
 }: {
   wilaya: string;
   setWilaya: (w: string) => void;
   commune?: string;
   setCommune?: (c: string) => void;
+  allOption?: boolean;
+  required?: boolean;
+  disabled?: boolean;
 }) {
   const [customMode, setCustomMode] = useState(false);
-  const communes = getCommunesForWilaya(wilaya);
+
+  // Normalize wilaya: handles code "16", arabic "الجزائر", latin "Alger", composite "16 - الجزائر"
+  const currentWilayaObj = useMemo(() => findWilaya(wilaya), [wilaya]);
+  const activeWilayaName = currentWilayaObj ? currentWilayaObj.nameAr : normalizeWilayaName(wilaya);
+
+  // Official communes for the selected wilaya
+  const baseCommunes = useMemo(
+    () => (activeWilayaName ? getCommunesForWilaya(activeWilayaName) : []),
+    [activeWilayaName],
+  );
+
+  // Ensure any current commune value is always present in the options list so it never renders blank
+  const displayCommunes = useMemo(() => {
+    const list = [...baseCommunes];
+    const trimmed = (commune ?? "").trim();
+    if (trimmed && trimmed !== "__custom__" && !list.includes(trimmed)) {
+      list.unshift(trimmed);
+    }
+    return list;
+  }, [baseCommunes, commune]);
+
+  const handleWilayaChange = (val: string) => {
+    setWilaya(val);
+    setCommune?.("");
+    setCustomMode(false);
+  };
+
+  const isCustom = customMode || (!!commune && !baseCommunes.includes(commune) && commune !== "");
 
   return (
     <>
       <Field label="الولاية (69 ولاية)">
         <select
           className={inputCls}
-          value={wilaya}
-          onChange={(e) => {
-            setWilaya(e.target.value);
-            setCommune?.("");
-            setCustomMode(false);
-          }}
+          value={activeWilayaName}
+          required={required}
+          disabled={disabled}
+          onChange={(e) => handleWilayaChange(e.target.value)}
         >
-          <option value="">اختر الولاية (01 إلى 69)</option>
+          <option value="">
+            {allOption ? "كل الولايات (01 إلى 69)" : "اختر الولاية (01 إلى 69)"}
+          </option>
           {wilayasList.map((w) => (
             <option key={w.code} value={w.nameAr}>
               {w.code} - {w.nameAr}
@@ -320,63 +355,98 @@ export function WilayaCommune({
           ))}
         </select>
       </Field>
+
       <Field label="البلدية">
-        {customMode ? (
-          <div>
-            <input
-              type="text"
-              list="communes-datalist"
-              className={inputCls}
-              placeholder="اكتب اسم البلدية مباشرة..."
-              value={commune ?? ""}
-              onChange={(e) => setCommune?.(e.target.value)}
-              disabled={!wilaya}
-            />
-            <datalist id="communes-datalist">
-              {communes.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => setCustomMode(false)}
-              className="mt-1 text-xs text-primary underline hover:text-primary/80"
-            >
-              العودة للقائمة المنسدلة
-            </button>
+        {isCustom ? (
+          <div className="space-y-1">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                required={required && !allOption}
+                className={`${inputCls} pl-16`}
+                placeholder={
+                  activeWilayaName
+                    ? `اكتب اسم بلدية في ${activeWilayaName}...`
+                    : "اكتب اسم البلدية أو الحي..."
+                }
+                value={commune ?? ""}
+                onChange={(e) => setCommune?.(e.target.value)}
+                disabled={disabled || (!activeWilayaName && !allOption)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomMode(false);
+                  setCommune?.(baseCommunes[0] || "");
+                }}
+                className="absolute left-2.5 rounded bg-secondary px-2 py-1 text-xs font-bold text-primary hover:bg-gold hover:text-deep transition cursor-pointer"
+                title="الرجوع إلى القائمة المنسدلة"
+              >
+                قائمة
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground px-0.5">
+              <span>كتابة بلدية أو حي يدوياً</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomMode(false);
+                  setCommune?.("");
+                }}
+                className="font-bold text-primary hover:underline cursor-pointer"
+              >
+                العودة للقائمة المنسدلة ←
+              </button>
+            </div>
           </div>
         ) : (
-          <div>
+          <div className="space-y-1">
             <select
               className={inputCls}
               value={commune ?? ""}
+              required={required && !allOption && !!activeWilayaName}
+              disabled={disabled || (!activeWilayaName && !allOption)}
               onChange={(e) => {
-                if (e.target.value === "__custom__") {
+                const val = e.target.value;
+                if (val === "__custom__") {
                   setCustomMode(true);
                   setCommune?.("");
                 } else {
-                  setCommune?.(e.target.value);
+                  setCommune?.(val);
                 }
               }}
-              disabled={!wilaya}
             >
-              <option value="">اختر البلدية</option>
-              {communes.map((c) => (
+              <option value="">
+                {!activeWilayaName
+                  ? allOption
+                    ? "كل البلديات (اختر ولاية أولاً)"
+                    : "اختر الولاية أولاً"
+                  : allOption
+                    ? `كل بلديات ${activeWilayaName}`
+                    : `اختر بلدية من ${activeWilayaName}`}
+              </option>
+              {displayCommunes.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
-              {wilaya && <option value="__custom__">-- كتابة بلدية أخرى يدوياً --</option>}
+              {activeWilayaName && (
+                <option value="__custom__">✏️ بلدية أو حي آخر (كتابة يدوية)...</option>
+              )}
             </select>
-            {wilaya && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                لم تجد بلديتك في القائمة؟{" "}
+            {activeWilayaName && (
+              <p className="text-[11px] text-muted-foreground px-0.5 flex items-center justify-between">
+                <span>
+                  {displayCommunes.length > 0
+                    ? `${displayCommunes.length} بلدية متوفرة`
+                    : "قائمة البلديات"}
+                </span>
                 <button
                   type="button"
                   onClick={() => setCustomMode(true)}
-                  className="font-bold text-primary underline hover:text-primary/80"
+                  className="font-bold text-primary hover:underline hover:text-gold transition cursor-pointer"
                 >
-                  اكتبها يدوياً
+                  كتابة يدوية ✏️
                 </button>
               </p>
             )}
@@ -387,12 +457,20 @@ export function WilayaCommune({
   );
 }
 
-export function TypeSelect() {
+export function TypeSelect({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+} = {}) {
   return (
     <Field label="نوع العقار">
-      <select className={inputCls}>
+      <select className={inputCls} value={value} onChange={onChange}>
         {propertyTypes.map((t) => (
-          <option key={t}>{t}</option>
+          <option key={t} value={t}>
+            {t}
+          </option>
         ))}
       </select>
     </Field>

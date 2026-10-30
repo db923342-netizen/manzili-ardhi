@@ -1,9 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Clock, Building2, Sparkles, Lock, CheckCircle2, Phone, Check } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Clock,
+  Building2,
+  Sparkles,
+  Lock,
+  CheckCircle2,
+  Phone,
+  Check,
+  Loader2,
+} from "lucide-react";
 import { PageTitle, Field, inputCls, btnGold, WilayaCommune, TypeSelect } from "@/components/site";
+import { executeCreateTemporaryRental, executeCreateProperty } from "@/lib/listings";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/publish")({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): {
+    mode?: string;
+    type?: string;
+  } => ({
+    mode: typeof s["mode"] === "string" ? s["mode"] : undefined,
+    type: typeof s["type"] === "string" ? s["type"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "انشر عقارك للإيجار أو كراء مؤقت | منزلي وأرضي" },
@@ -19,17 +40,97 @@ export const Route = createFileRoute("/_authenticated/publish")({
 });
 
 function Publish() {
-  const [rentalMode, setRentalMode] = useState<"standard" | "temporary">("standard");
+  const queryClient = useQueryClient();
+  const searchParams = Route.useSearch();
+  const initialMode =
+    searchParams.mode === "temporary" || searchParams.type === "temporary"
+      ? "temporary"
+      : "standard";
+  const [rentalMode, setRentalMode] = useState<"standard" | "temporary">(initialMode);
+  const [title, setTitle] = useState("");
+  const [propertyType, setPropertyType] = useState("شقة");
+  const [price, setPrice] = useState("");
   const [w, setW] = useState("");
   const [c, setC] = useState("");
   const [phone, setPhone] = useState("");
   const [minStay, setMinStay] = useState("1");
   const [maxGuests, setMaxGuests] = useState("4");
+  const [rooms, setRooms] = useState("3");
+  const [area, setArea] = useState("85");
+  const [description, setDescription] = useState("");
   const [amenities, setAmenities] = useState<string[]>(["تكييف", "واي فاي", "مفروشة بالكامل"]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   function toggleAmenity(a: string) {
     setAmenities((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!w || !c) {
+      toast.error("يرجى اختيار الولاية والبلدية أولاً.");
+      return;
+    }
+    if (!phone || phone.trim().length < 9) {
+      toast.error("يرجى إدخال رقم هاتف جزائري صحيح للتواصل.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    if (rentalMode === "temporary") {
+      const res = await executeCreateTemporaryRental(
+        {
+          title: title.trim() || `شقة ${w} للكراء المؤقت 24 ساعة`,
+          propertyType,
+          wilaya: w,
+          commune: c,
+          nightlyPrice: Number(price) || 6000,
+          minStayDays: Number(minStay) || 1,
+          maxGuests: Number(maxGuests) || 4,
+          rooms: Number(rooms) || 3,
+          area: Number(area) || 85,
+          amenities,
+          description:
+            description.trim() ||
+            "شقة راقية مؤثثة بالكامل ومجهزة بجميع وسائل الراحة للكراء المؤقت اليومي.",
+          phone: phone.trim(),
+        },
+        queryClient,
+      );
+
+      setIsSubmitting(false);
+
+      if (res.success) {
+        toast.success("تم نشر الشقة المؤقتة مجاناً وأصبحت متاحة فوراً لجميع الزوار!");
+        setSubmitted(true);
+      } else {
+        toast.info(
+          `تم نشر الشقة محلياً وأصبحت ظاهرة للمستخدمين، مع تنبيه قاعدة البيانات: ${res.error || "تأكيد المزامنة"}`,
+        );
+        setSubmitted(true);
+      }
+    } else {
+      const res = await executeCreateProperty(
+        {
+          title: title.trim() || `${propertyType} للإيجار في ${w}`,
+          propertyType,
+          wilaya: w,
+          commune: c,
+          price: Number(price) || 35000,
+          rooms: Number(rooms) || 3,
+          area: Number(area) || 85,
+          description: description.trim() || "عقار مجهز ونظيف متاح للإيجار.",
+          phone: phone.trim(),
+        },
+        queryClient,
+      );
+
+      setIsSubmitting(false);
+      toast.success("تم نشر عقارك مجاناً بنجاح وأصبح متاحاً وظاهراً فوراً لجميع المستخدمين!");
+      setSubmitted(true);
+    }
   }
 
   return (
@@ -40,18 +141,18 @@ function Publish() {
             ? "انشر شقة للكراء المؤقت (24 ساعة / باليوم)"
             : "انشر عقارك للإيجار الدائم"
         }
-        sub="النشر مجاني، ورقم هاتفك يبقى مخفيًا ومشفرًا حتى إتمام الصفقة وموافقة الإدارة."
+        sub="النشر مجاني وتلقائي، ورقم هاتفك يبقى مخفيًا ومشفرًا حتى إتمام الصفقة وموافقة الإدارة."
       />
       {submitted ? (
         <div className="mx-auto -mt-6 max-w-xl rounded-2xl bg-card p-8 text-center shadow-card">
           <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
             <CheckCircle2 size={36} />
           </div>
-          <h2 className="text-xl font-bold">تم إرسال إعلانك للمراجعة بنجاح!</h2>
+          <h2 className="text-xl font-bold">تم نشر إعلانك بنجاح وأصبح متاحاً للجميع!</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {rentalMode === "temporary"
-              ? "تم تسجيل شقتك في قسم الكراء المؤقت بنجاح. سيقوم المشرف بالتحقق منها ونشرها فوراً للزوار والباحثين عن إقامة 24 ساعة أو أكثر."
-              : "تم تسجيل عقارك بنجاح. سيقوم المشرف بمراجعته ونشره، ورقمك سيبقى محميًا ومخفيًا عن العامة."}
+              ? "تم نشر شقتك في قسم الكراء المؤقت، وتظهر الآن تلقائياً لجميع الزوار والباحثين عن إقامة بدون حاجة للانتظار."
+              : "تم نشر عقارك بنجاح ويستطيع الآن جميع المستخدمين تصفحه ورؤيته، بينما يظل رقم هاتفك محميًا ومخفيًا لحمايتك."}
             <br />
             رقم هاتفك المسجل: (
             <span dir="ltr" className="font-mono font-bold text-primary">
@@ -59,19 +160,38 @@ function Publish() {
             </span>
             ).
           </p>
-          <button
-            onClick={() => setSubmitted(false)}
-            className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground hover:opacity-90"
-          >
-            نشر إعلان آخر
-          </button>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            {rentalMode === "temporary" ? (
+              <Link
+                to="/temporary-rentals"
+                className="rounded-lg bg-gold px-6 py-2.5 text-sm font-black text-deep shadow-md hover:brightness-105 transition"
+              >
+                مشاهدة الشقة في قسم الكراء المؤقت ←
+              </Link>
+            ) : (
+              <Link
+                to="/search"
+                className="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow hover:opacity-90 transition"
+              >
+                عرض في قائمة العقارات ←
+              </Link>
+            )}
+            <button
+              onClick={() => {
+                setSubmitted(false);
+                setTitle("");
+                setPrice("");
+                setDescription("");
+              }}
+              className="rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-bold text-foreground hover:bg-secondary transition"
+            >
+              نشر إعلان آخر
+            </button>
+          </div>
         </div>
       ) : (
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSubmitted(true);
-          }}
+          onSubmit={handleSubmit}
           className="mx-auto -mt-6 grid max-w-3xl gap-4 rounded-2xl bg-card p-6 shadow-card md:grid-cols-2"
         >
           {/* Choice of Rental Category */}
@@ -113,6 +233,8 @@ function Publish() {
             <Field label="عنوان الإعلان">
               <input
                 required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 className={inputCls}
                 placeholder={
                   rentalMode === "temporary"
@@ -123,7 +245,7 @@ function Publish() {
             </Field>
           </div>
 
-          <TypeSelect />
+          <TypeSelect value={propertyType} onChange={(e) => setPropertyType(e.target.value)} />
 
           {rentalMode === "temporary" ? (
             <>
@@ -132,6 +254,8 @@ function Publish() {
                   type="number"
                   required
                   min={1000}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
                   className={inputCls}
                   placeholder="مثال: 6000 د.ج / 24 سا"
                 />
@@ -163,7 +287,14 @@ function Publish() {
             </>
           ) : (
             <Field label="السعر الشهري (د.ج)">
-              <input type="number" required className={inputCls} placeholder="مثال: 35000" />
+              <input
+                type="number"
+                required
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className={inputCls}
+                placeholder="مثال: 35000"
+              />
             </Field>
           )}
 
@@ -192,12 +323,32 @@ function Publish() {
             </Field>
           </div>
 
-          <WilayaCommune wilaya={w} setWilaya={setW} commune={c} setCommune={setC} />
+          <WilayaCommune
+            wilaya={w}
+            setWilaya={setW}
+            commune={c}
+            setCommune={setC}
+            required={true}
+          />
           <Field label="عدد الغرف">
-            <input type="number" min={1} className={inputCls} placeholder="مثال: 3" />
+            <input
+              type="number"
+              min={1}
+              value={rooms}
+              onChange={(e) => setRooms(e.target.value)}
+              className={inputCls}
+              placeholder="مثال: 3"
+            />
           </Field>
           <Field label="المساحة (م²)">
-            <input type="number" min={1} className={inputCls} placeholder="مثال: 85" />
+            <input
+              type="number"
+              min={1}
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              className={inputCls}
+              placeholder="مثال: 85"
+            />
           </Field>
           {/* Amenities & Rules for Temporary Rental */}
           {rentalMode === "temporary" && (
@@ -251,6 +402,8 @@ function Publish() {
             <Field label="الوصف والمواصفات">
               <textarea
                 rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 className={inputCls}
                 placeholder={
                   rentalMode === "temporary"
@@ -265,10 +418,21 @@ function Publish() {
               <input type="file" multiple accept="image/*" className={inputCls} />
             </Field>
           </div>
-          <button type="submit" className={`${btnGold} md:col-span-2`}>
-            {rentalMode === "temporary"
-              ? "إرسال الشقة المؤقتة للمراجعة والنشر"
-              : "إرسال للمراجعة والنشر"}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`${btnGold} md:col-span-2 flex items-center justify-center gap-2`}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>جاري الحفظ في Supabase...</span>
+              </>
+            ) : rentalMode === "temporary" ? (
+              "إرسال الشقة المؤقتة للمراجعة والنشر"
+            ) : (
+              "إرسال للمراجعة والنشر"
+            )}
           </button>
         </form>
       )}

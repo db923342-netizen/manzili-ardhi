@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ShieldCheck, Search, FileText, Handshake, Clock } from "lucide-react";
 import hero from "@/assets/hero.jpg";
 import { useQuery } from "@tanstack/react-query";
-import { propertiesQuery, requestsQuery } from "@/lib/listings";
+import { propertiesQuery, requestsQuery, temporaryRentalsQuery } from "@/lib/listings";
 import {
   PropertyCard,
   RequestCard,
@@ -12,8 +12,7 @@ import {
   btnGold,
   DeveloperSection,
 } from "@/components/site";
-import { PropertyViewer3D } from "@/components/PropertyViewer3D";
-import { defaultTemporaryRentals, formatDA } from "@/lib/data";
+import { formatDA } from "@/lib/data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +40,7 @@ function Index() {
   const navigate = useNavigate();
   const { data: properties } = useQuery(propertiesQuery);
   const { data: requests } = useQuery(requestsQuery);
+  const { data: temporaryRentals = [] } = useQuery(temporaryRentalsQuery);
   return (
     <>
       <section className="relative">
@@ -90,6 +90,7 @@ function Index() {
               setWilaya={setWilaya}
               commune={commune}
               setCommune={setCommune}
+              allOption={true}
             />
             <TypeSelect />
             <button className={`${btnGold} flex items-center justify-center gap-2`}>
@@ -179,43 +180,64 @@ function Index() {
             </Link>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {defaultTemporaryRentals.slice(0, 3).map((r) => (
-              <div
-                key={r.id}
-                className="rounded-2xl border border-white/10 bg-card text-card-foreground overflow-hidden shadow hover:shadow-lg transition flex flex-col"
+          {temporaryRentals.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-card p-8 text-center text-card-foreground shadow">
+              <Clock className="mx-auto h-10 w-10 text-gold mb-2" />
+              <h3 className="font-bold text-base">لا توجد شقق مؤقتة معروضة حالياً</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                هل تملك شقة مفروشة أو استوديو؟ انشرها الآن للكراء المؤقت باليوم واستقبل مستأجرين
+                موثوقين.
+              </p>
+              <Link
+                to="/publish"
+                search={{ mode: "temporary" }}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-xs font-black text-deep shadow hover:brightness-105 transition"
               >
-                <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                  <img src={r.image} alt={r.title} className="h-full w-full object-cover" />
-                  <div className="absolute top-2.5 right-2.5 rounded-md bg-gold px-2 py-0.5 text-[11px] font-black text-deep">
-                    كراء مؤقت
+                <span>انشر شقتك للكراء المؤقت مجاناً</span>
+                <span>←</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {temporaryRentals.slice(0, 3).map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-2xl border border-white/10 bg-card text-card-foreground overflow-hidden shadow hover:shadow-lg transition flex flex-col"
+                >
+                  <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                    <img src={r.image} alt={r.title} className="h-full w-full object-cover" />
+                    <div className="absolute top-2.5 right-2.5 rounded-md bg-gold px-2 py-0.5 text-[11px] font-black text-deep">
+                      كراء مؤقت
+                    </div>
+                    <div className="absolute bottom-2 right-2 rounded bg-black/60 backdrop-blur px-2 py-0.5 text-[11px] text-white">
+                      {r.commune}، {r.wilaya}
+                    </div>
                   </div>
-                  <div className="absolute bottom-2 right-2 rounded bg-black/60 backdrop-blur px-2 py-0.5 text-[11px] text-white">
-                    {r.commune}، {r.wilaya}
-                  </div>
-                </div>
-                <div className="p-4 flex flex-1 flex-col">
-                  <h3 className="font-bold text-sm text-foreground line-clamp-1">{r.title}</h3>
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{r.description}</p>
-                  <div className="mt-auto pt-3 flex items-center justify-between border-t border-border">
-                    <span className="font-black text-primary text-sm">
-                      {formatDA(r.nightlyPrice)}
-                      <span className="text-[10px] text-muted-foreground font-normal">
-                        {" "}
-                        / 24 سا
+                  <div className="p-4 flex flex-1 flex-col">
+                    <h3 className="font-bold text-sm text-foreground line-clamp-1">{r.title}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                      {r.description}
+                    </p>
+                    <div className="mt-auto pt-3 flex items-center justify-between border-t border-border">
+                      <span className="font-black text-primary text-sm">
+                        {formatDA(r.nightlyPrice)}
+                        <span className="text-[10px] text-muted-foreground font-normal">
+                          {" "}
+                          / 24 سا
+                        </span>
                       </span>
-                    </span>
-                    <Link
-                      to="/temporary-rentals"
-                      className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-gold hover:text-deep transition"
-                    >
-                      حجز الشقة
-                    </Link>
+                      <Link
+                        to="/temporary-rentals"
+                        className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-gold hover:text-deep transition"
+                      >
+                        حجز الشقة
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -259,28 +281,6 @@ function Index() {
             </p>
           )}
         </div>
-      </section>
-      {/* 3D Property & Land Interactive Section */}
-      <section className="mx-auto mt-16 max-w-6xl px-4">
-        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-3">
-          <div>
-            <span className="rounded-full bg-gold-soft px-3 py-1 text-xs font-bold text-deep">
-              تقنية ثلاثية الأبعاد تفاعلية 3D
-            </span>
-            <h2 className="mt-2 text-2xl font-bold md:text-3xl">
-              معاينة افتراضية للعقار وقطعة الأرض
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              استكشف تصميم الفيلا الأندلسية والحديقة، فكك الطوابق هندسياً، وبدّل زوايا الرؤية
-              والإضاءة النهارية والليلية.
-            </p>
-          </div>
-        </div>
-        <PropertyViewer3D
-          propertyTitle="فيلا عصرية مع حديقة وموقف سيارات"
-          wilaya="الجزائر العاصمة"
-          area={360}
-        />
       </section>
 
       <DeveloperSection />

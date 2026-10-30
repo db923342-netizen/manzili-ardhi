@@ -79,6 +79,10 @@ export function arabicAuthError(message: string): string {
 // التعبير المنظم (Regex) الصحيح للتحقق من الإيميل والسماح بالنقطة بعد @
 export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function sanitizeEmail(rawEmail: string): string {
+  return rawEmail.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E]/g, "").trim();
+}
+
 export function isValidEmail(email: string): boolean {
-  return emailRegex.test(email.trim());
+  return emailRegex.test(sanitizeEmail(email));
 }

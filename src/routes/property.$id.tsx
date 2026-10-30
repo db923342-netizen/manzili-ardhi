@@ -6,7 +6,6 @@ import { formatDA, fees } from "@/lib/data";
 import { propertiesQuery, executeDeleteProperty } from "@/lib/listings";
 import { HiddenPhone, btnPrimary } from "@/components/site";
 import { useIsAdmin } from "@/lib/auth";
-import { PropertyViewer3D } from "@/components/PropertyViewer3D";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/property/$id")({
@@ -50,7 +49,6 @@ export const Route = createFileRoute("/property/$id")({
 function Detail() {
   const p = Route.useLoaderData();
   const { isAdmin } = useIsAdmin();
-  const [viewMode, setViewMode] = useState<"image" | "3d">("image");
   const [isDeleting, setIsDeleting] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -69,44 +67,11 @@ function Detail() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      {/* View Toggle */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode("image")}
-            className={`rounded-lg px-4 py-2 text-xs font-bold transition ${
-              viewMode === "image"
-                ? "bg-primary text-primary-foreground shadow"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            صور العقار
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("3d")}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition ${
-              viewMode === "3d"
-                ? "bg-gold text-deep shadow"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <span>معاينة ثلاثية الأبعاد 3D</span>
-            <span className="rounded-full bg-deep/15 px-1.5 py-0.2 text-[10px]">ميزة حية</span>
-          </button>
-        </div>
-      </div>
-
-      {viewMode === "3d" ? (
-        <PropertyViewer3D propertyTitle={p.title} wilaya={p.wilaya} area={p.area} />
-      ) : (
-        <img
-          src={p.image}
-          alt={p.title}
-          className="aspect-[16/9] w-full rounded-2xl object-cover md:aspect-[21/9]"
-        />
-      )}
+      <img
+        src={p.image}
+        alt={p.title}
+        className="aspect-[16/9] w-full rounded-2xl object-cover md:aspect-[21/9] shadow-card"
+      />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

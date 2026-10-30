@@ -17,7 +17,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDA, type Property, type RentalRequest } from "@/lib/data";
+import { formatDA, defaultTemporaryBookings, type Property, type RentalRequest } from "@/lib/data";
 import {
   getTemporaryBookingsFromFirestore,
   updateTemporaryBookingStatusInFirestore,
@@ -79,58 +79,84 @@ function Admin() {
 
   const [deals, setDeals] = useState(() => {
     const deleted = getDeletedDealIds();
-    return defaultDealsWithPhones.filter((d) => !deleted.has(d.id));
+    return defaultDealsWithPhones
+      .map((d) => ({
+        ...d,
+        feePayer: d.paid ? "مالك العقار" : "المستأجر",
+      }))
+      .filter((d) => !deleted.has(d.id));
   });
 
   const [tempBookings, setTempBookings] = useState<FirestoreTemporaryBooking[]>(() => {
     const deleted = getDeletedBookingIds();
-    const defaults: FirestoreTemporaryBooking[] = [
-      {
-        id: "tmp-b101",
-        rentalId: "temp-101",
-        rentalTitle: "شقة فاخرة F3 مؤثثة بالكامل - حيدرة العاصمة",
-        wilaya: "الجزائر",
-        commune: "حيدرة",
-        guestName: "عبد القادر مسعودي",
-        guestPhone: "0554 11 22 33",
-        checkInDate: new Date().toISOString().slice(0, 10),
-        checkOutDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-        totalNights: 1,
-        guestsCount: 3,
-        nightlyPrice: 8500,
-        totalPrice: 8500,
-        serviceFee: 500,
-        grandTotal: 9000,
-        status: "قيد التأكيد",
-        specialNotes: "وصول بعد العصر، عائلة مصحوبة بدفتر عائلي",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "tmp-b102",
-        rentalId: "temp-102",
-        rentalTitle: "استوديو عصري مجهز مطل على البحر - وهران (كانستيل)",
-        wilaya: "وهران",
-        commune: "وهران",
-        guestName: "فؤاد غربي",
-        guestPhone: "0668 44 55 66",
-        checkInDate: new Date().toISOString().slice(0, 10),
-        checkOutDate: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
-        totalNights: 2,
-        guestsCount: 2,
-        nightlyPrice: 5000,
-        totalPrice: 10000,
-        serviceFee: 500,
-        grandTotal: 10500,
-        status: "مؤكد",
-        specialNotes: "مهمة عمل في وهران، طلب فاتورة استلام",
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    return defaults.filter((b) => !deleted.has(b.id));
+    let local: FirestoreTemporaryBooking[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("manzili_local_bookings");
+        if (raw) local = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+    }
+    const combined = [...local, ...defaultTemporaryBookings].filter((b) => !deleted.has(b.id));
+    return combined;
   });
 
-  // Load bookings from Firestore if available
+  function handleUpdateFeePayer(dealId: string, payer: string) {
+    setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, feePayer: payer } : d)));
+    toast.success(`تم تحديد المكلف بدفع الرسوم: ${payer}`);
+  }
+
+  // Load bookings from Supabase & Firestore
   useEffect(() => {
+    // 1. Fetch from Supabase short_term_rentals
+    supabase
+      .from("short_term_rentals")
+      .select("*, properties(*)")
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const deleted = getDeletedBookingIds();
+          const mapped: FirestoreTemporaryBooking[] = data.map((item) => {
+            const r = item as Record<string, unknown>;
+            const rawProp = r["properties"];
+            const prop = (Array.isArray(rawProp) ? rawProp[0] : rawProp) as
+              Record<string, unknown> | undefined;
+            const desc = typeof prop?.["description"] === "string" ? prop["description"] : "";
+            const wilaya = typeof prop?.["wilaya"] === "string" ? prop["wilaya"] : "الجزائر";
+            const commune =
+              typeof prop?.["municipality"] === "string" ? prop["municipality"] : "العاصمة";
+            const nightlyPrice = typeof r["total_price"] === "number" ? r["total_price"] : 6000;
+            return {
+              id: String(r["id"] || `str-${Date.now()}`),
+              rentalId: String(r["property_id"] || ""),
+              rentalTitle: desc.split("\n")[0] || "شقة للكراء المؤقت",
+              wilaya,
+              commune,
+              guestName: "ضيف مسجل",
+              guestPhone: "0550 •• •• ••",
+              checkInDate: String(r["check_in"] || ""),
+              checkOutDate: String(r["check_out"] || ""),
+              totalNights: 1,
+              guestsCount: 2,
+              nightlyPrice,
+              totalPrice: nightlyPrice,
+              serviceFee: 500,
+              grandTotal: nightlyPrice + 500,
+              status: r["status"] === "active" ? "مؤكد" : "قيد التأكيد",
+              createdAt: String(r["created_at"] || new Date().toISOString()),
+            };
+          });
+
+          setTempBookings((prev) => {
+            const map = new Map<string, FirestoreTemporaryBooking>();
+            [...mapped, ...prev].filter((b) => !deleted.has(b.id)).forEach((b) => map.set(b.id, b));
+            return Array.from(map.values());
+          });
+        }
+      });
+
+    // 2. Fetch bookings from Firestore if available
     getTemporaryBookingsFromFirestore().then((remote) => {
       if (remote && remote.length > 0) {
         const deleted = getDeletedBookingIds();
@@ -295,6 +321,11 @@ function Admin() {
   async function handleConfirmBooking(booking: FirestoreTemporaryBooking) {
     setLoadingId(`confirm-${booking.id}`);
     try {
+      await supabase.from("short_term_rentals").update({ status: "active" }).eq("id", booking.id);
+    } catch {
+      // Supabase error tolerated
+    }
+    try {
       await updateTemporaryBookingStatusInFirestore(booking.id, "مؤكد");
     } catch {
       // offline/fallback
@@ -302,12 +333,20 @@ function Admin() {
     setTempBookings((prev) =>
       prev.map((b) => (b.id === booking.id ? { ...b, status: "مؤكد" } : b)),
     );
-    toast.success(`تم تأكيد حجز الشقة بنجاح!`);
+    toast.success(`تم تأكيد حجز الشقة وتحديث حالته في Supabase!`);
     setLoadingId(null);
   }
 
   async function handleCancelBooking(booking: FirestoreTemporaryBooking) {
     setLoadingId(`cancel-${booking.id}`);
+    try {
+      await supabase
+        .from("short_term_rentals")
+        .update({ status: "cancelled" })
+        .eq("id", booking.id);
+    } catch {
+      // Supabase error tolerated
+    }
     try {
       await updateTemporaryBookingStatusInFirestore(booking.id, "ملغى");
     } catch {
@@ -322,6 +361,11 @@ function Admin() {
 
   async function handleDeleteBooking(booking: FirestoreTemporaryBooking) {
     setLoadingId(`del-book-${booking.id}`);
+    try {
+      await supabase.from("short_term_rentals").delete().eq("id", booking.id);
+    } catch {
+      // ignore
+    }
     try {
       await executeDeleteBooking(booking.id);
       setTempBookings((prev) => prev.filter((b) => b.id !== booking.id));
@@ -458,6 +502,23 @@ function Admin() {
                     </span>
                     <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-deep">
                       ظاهر للأدمن فقط • محمي بين الطرفين
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1.5 text-xs">
+                    <span className="font-bold text-foreground">الطرف المكلف بدفع الرسوم:</span>
+                    <select
+                      value={d.feePayer || "المستأجر"}
+                      onChange={(e) => handleUpdateFeePayer(d.id, e.target.value)}
+                      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-bold text-primary cursor-pointer hover:border-gold"
+                    >
+                      <option value="المستأجر">المستأجر (1,000 د.ج)</option>
+                      <option value="مالك العقار">مالك العقار (1,000 د.ج)</option>
+                      <option value="مناصفة بين الطرفين">
+                        مناصفة بين الطرفين (500 د.ج / 500 د.ج)
+                      </option>
+                    </select>
+                    <span className="text-[11px] text-muted-foreground">
+                      (خيار المدير لتحديد جهة تحصيل الرسوم)
                     </span>
                   </div>
                 </div>

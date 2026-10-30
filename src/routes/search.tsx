@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Clock, Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { propertiesQuery } from "@/lib/listings";
-import { propertyTypes, wilayasList, getCommunesForWilaya } from "@/lib/data";
-import { PageTitle, PropertyCard, Field, inputCls } from "@/components/site";
+import { propertyTypes, normalizeWilayaName } from "@/lib/data";
+import { PageTitle, PropertyCard, Field, inputCls, WilayaCommune } from "@/components/site";
 
 export const Route = createFileRoute("/search")({
   validateSearch: (
@@ -36,16 +36,25 @@ function SearchPage() {
   const [w, setW] = useState(searchParams.w ?? "");
   const [c, setC] = useState(searchParams.c ?? "");
   const [t, setT] = useState(searchParams.t ?? "");
-  const [customCommune, setCustomCommune] = useState(false);
   const { data, isLoading: loading, isError } = useQuery(propertiesQuery);
   const list = data ?? [];
   const error = isError ? "تعذر تحميل العقارات من قاعدة البيانات. يرجى المحاولة لاحقًا." : "";
 
-  const communes = getCommunesForWilaya(w);
+  const normSearchW = normalizeWilayaName(w);
 
-  const filtered = list.filter(
-    (p) => (!w || p.wilaya === w) && (!c || p.commune === c) && (!t || p.type === t),
-  );
+  const filtered = list.filter((p) => {
+    if (w) {
+      const pNorm = normalizeWilayaName(p.wilaya);
+      if (pNorm !== normSearchW && p.wilaya !== w) return false;
+    }
+    if (c) {
+      const pCommune = (p.commune ?? "").toLowerCase().trim();
+      const searchCommune = c.toLowerCase().trim();
+      if (!pCommune.includes(searchCommune) && pCommune !== searchCommune) return false;
+    }
+    if (t && p.type !== t) return false;
+    return true;
+  });
 
   return (
     <>
@@ -85,84 +94,13 @@ function SearchPage() {
         </div>
 
         <div className="grid gap-3 rounded-2xl bg-card p-4 shadow-card md:grid-cols-3">
-          <Field label="الولاية (69 ولاية)">
-            <select
-              className={inputCls}
-              value={w}
-              onChange={(e) => {
-                setW(e.target.value);
-                setC("");
-                setCustomCommune(false);
-              }}
-            >
-              <option value="">كل الولايات (01 إلى 69)</option>
-              {wilayasList.map((x) => (
-                <option key={x.code} value={x.nameAr}>
-                  {x.code} - {x.nameAr}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="البلدية">
-            {customCommune ? (
-              <div>
-                <input
-                  type="text"
-                  list="search-communes-datalist"
-                  className={inputCls}
-                  placeholder="اكتب اسم البلدية مباشرة..."
-                  value={c}
-                  onChange={(e) => setC(e.target.value)}
-                />
-                <datalist id="search-communes-datalist">
-                  {communes.map((x) => (
-                    <option key={x} value={x} />
-                  ))}
-                </datalist>
-                <button
-                  type="button"
-                  onClick={() => setCustomCommune(false)}
-                  className="mt-1 text-xs text-primary underline"
-                >
-                  العودة للقائمة المنسدلة
-                </button>
-              </div>
-            ) : (
-              <div>
-                <select
-                  className={inputCls}
-                  value={c}
-                  onChange={(e) => {
-                    if (e.target.value === "__custom__") {
-                      setCustomCommune(true);
-                      setC("");
-                    } else {
-                      setC(e.target.value);
-                    }
-                  }}
-                  disabled={!w}
-                >
-                  <option value="">كل البلديات</option>
-                  {communes.map((x) => (
-                    <option key={x} value={x}>
-                      {x}
-                    </option>
-                  ))}
-                  {w && <option value="__custom__">-- كتابة بلدية أخرى يدوياً --</option>}
-                </select>
-                {w && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomCommune(true)}
-                    className="mt-1 text-xs text-muted-foreground hover:text-primary hover:underline"
-                  >
-                    بلدية غير مذكورة؟ اكتبها يدوياً
-                  </button>
-                )}
-              </div>
-            )}
-          </Field>
+          <WilayaCommune
+            wilaya={w}
+            setWilaya={setW}
+            commune={c}
+            setCommune={setC}
+            allOption={true}
+          />
 
           <Field label="نوع العقار">
             <select className={inputCls} value={t} onChange={(e) => setT(e.target.value)}>

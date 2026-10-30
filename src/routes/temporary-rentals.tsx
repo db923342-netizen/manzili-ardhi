@@ -26,28 +26,32 @@ import {
   ChevronRight,
   Info,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { temporaryRentalsQuery } from "@/lib/listings";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  defaultTemporaryRentals,
   formatDA,
   wilayasList,
   getCommunesForWilaya,
+  normalizeWilayaName,
   fees,
   type TemporaryRental,
+  type TemporaryBooking,
 } from "@/lib/data";
 import { saveTemporaryBookingToFirestore } from "@/lib/firebase";
-import { PageTitle, Field, inputCls, btnGold } from "@/components/site";
+import { PageTitle, Field, inputCls, btnGold, WilayaCommune } from "@/components/site";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/temporary-rentals")({
   validateSearch: (
     s: Record<string, unknown>,
   ): {
-    w?: string | undefined;
-    c?: string | undefined;
-    type?: string | undefined;
-    minPrice?: string | undefined;
-    maxPrice?: string | undefined;
-    guests?: string | undefined;
+    w?: string;
+    c?: string;
+    type?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    guests?: string;
   } => ({
     w: typeof s["w"] === "string" ? s["w"] : undefined,
     c: typeof s["c"] === "string" ? s["c"] : undefined,
@@ -122,12 +126,23 @@ export function TemporaryRentalsPage() {
     return diffDays > 0 ? diffDays : 1;
   }, [checkIn, checkOut]);
 
+  // Fetch real temporary rentals from Supabase and Firestore
+  const { data: rentals = [], isLoading } = useQuery(temporaryRentalsQuery);
+
   // Filter listings
   const filteredRentals = useMemo(() => {
-    return defaultTemporaryRentals
+    const normSearchW = normalizeWilayaName(wilaya);
+    return rentals
       .filter((r) => {
-        if (wilaya && r.wilaya !== wilaya) return false;
-        if (commune && r.commune !== commune) return false;
+        if (wilaya) {
+          const rNorm = normalizeWilayaName(r.wilaya);
+          if (rNorm !== normSearchW && r.wilaya !== wilaya) return false;
+        }
+        if (commune) {
+          const cNorm = commune.trim().toLowerCase();
+          const rCommune = (r.commune ?? "").trim().toLowerCase();
+          if (!rCommune.includes(cNorm) && rCommune !== cNorm) return false;
+        }
         if (rentalType && r.type !== rentalType) return false;
         if (minPrice && r.nightlyPrice < Number(minPrice)) return false;
         if (maxPrice && r.nightlyPrice > Number(maxPrice)) return false;
@@ -143,6 +158,7 @@ export function TemporaryRentalsPage() {
         return 0;
       });
   }, [
+    rentals,
     wilaya,
     commune,
     rentalType,
@@ -170,8 +186,116 @@ export function TemporaryRentalsPage() {
     const serviceFee = fees.temporaryBookingFee || 500;
     const grandTotal = totalPrice + serviceFee;
 
+    // 1. Get authenticated user from Supabase if logged in
+    let authUserId: string | null = null;
     try {
-      const saved = await saveTemporaryBookingToFirestore({
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) authUserId = authData.user.id;
+    } catch {
+      // optional
+    }
+
+    let supabaseError: string | null = null;
+    let createdBookingId: string | null = null;
+
+    // 2. Perform INSERT into Supabase short_term_rentals table
+    try {
+      let targetPropertyId = bookingRental.id;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        targetPropertyId,
+      );
+
+      // If rental ID is not a UUID (e.g. initial demo data), resolve or create a property in properties table
+      if (!isUuid) {
+        const { data: existingProp } = await supabase
+          .from("properties")
+          .select("id")
+          .eq("wilaya", bookingRental.wilaya)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingProp?.id) {
+          targetPropertyId = existingProp.id;
+        } else {
+          const { data: newP } = await supabase
+            .from("properties")
+            .insert({
+              property_type: "apartment",
+              wilaya: bookingRental.wilaya,
+              municipality: bookingRental.commune,
+              monthly_rent: nightlyPrice,
+              duration_months: 0,
+              description: bookingRental.title,
+              status: "approved",
+            })
+            .select("id")
+            .single();
+
+          if (newP?.id) targetPropertyId = newP.id;
+        }
+      }
+
+      // Insert directly into public.short_term_rentals
+      const { data: strData, error: strErr } = await supabase
+        .from("short_term_rentals")
+        .insert({
+          property_id: targetPropertyId,
+          user_id: authUserId,
+          check_in: checkIn,
+          check_out: checkOut,
+          total_price: grandTotal,
+          status: "pending", // الحجوزات كلها تمر بعد موافقة المدير
+        })
+        .select("id")
+        .single();
+
+      if (strErr) {
+        console.warn("Supabase short_term_rentals insert:", strErr);
+        supabaseError = strErr.message;
+      } else if (strData) {
+        createdBookingId = strData.id;
+      }
+    } catch (err) {
+      supabaseError = err instanceof Error ? err.message : String(err);
+    }
+
+    // 3. Save booking into local repository for Admin Dashboard
+    const finalId = createdBookingId || `tmp-b${Date.now()}`;
+    const newBooking: TemporaryBooking = {
+      id: finalId,
+      rentalId: bookingRental.id,
+      rentalTitle: bookingRental.title,
+      wilaya: bookingRental.wilaya,
+      commune: bookingRental.commune,
+      guestName: guestName.trim() || "ضيف كريم",
+      guestPhone: guestPhone.trim(),
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      totalNights: nightsCount,
+      guestsCount: guestCount,
+      nightlyPrice,
+      totalPrice,
+      serviceFee,
+      grandTotal,
+      status: "قيد التأكيد",
+      specialNotes: specialNotes.trim() || undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("manzili_local_bookings");
+        const list: TemporaryBooking[] = raw ? JSON.parse(raw) : [];
+        list.unshift(newBooking);
+        localStorage.setItem("manzili_local_bookings", JSON.stringify(list));
+      } catch {
+        // ignore
+      }
+    }
+
+    // Background sync to Firestore for admin redundancy
+    try {
+      await saveTemporaryBookingToFirestore({
         rentalId: bookingRental.id,
         rentalTitle: bookingRental.title,
         wilaya: bookingRental.wilaya,
@@ -189,19 +313,28 @@ export function TemporaryRentalsPage() {
         status: "قيد التأكيد",
         specialNotes: specialNotes.trim() || undefined,
       });
-
-      const refCode = `DZ-TMP-${saved.id.slice(0, 6).toUpperCase()}`;
-      setConfirmedBookingId(refCode);
-      toast.success("تم إرسال طلب الحجز بنجاح! سيتم التواصل معك لتأكيد تسليم المفاتيح.");
-    } catch (err) {
-      console.warn("Firestore offline/fallback for booking:", err);
-      // Fallback local code
-      const refCode = `DZ-TMP-${Math.floor(100000 + Math.random() * 900000)}`;
-      setConfirmedBookingId(refCode);
-      toast.success("تم تسجيل طلب الحجز بنجاح!");
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // ignore
     }
+
+    setIsSubmitting(false);
+
+    // 4. Report feedback accurately without deceptive fake success
+    if (createdBookingId) {
+      toast.success(
+        "تم حفظ طلب الحجز بنجاح في قاعدة بيانات Supabase! طلبك الآن بانتظار مراجعة واعتماد المدير.",
+      );
+    } else if (supabaseError) {
+      toast.warning(
+        `تم تسجيل طلب الحجز محلياً بانتظار اعتماد المدير (تنبيه قاعدة البيانات: ${supabaseError})`,
+        { duration: 7000 },
+      );
+    } else {
+      toast.success("تم إرسال طلب الحجز بنجاح! طلبك الآن بانتظار مراجعة واعتماد المدير.");
+    }
+
+    const refCode = `DZ-TMP-${finalId.slice(0, 6).toUpperCase()}`;
+    setConfirmedBookingId(refCode);
   }
 
   function resetBookingModal() {
@@ -237,6 +370,7 @@ export function TemporaryRentalsPage() {
             <div className="flex flex-col gap-2.5 sm:flex-row md:items-center">
               <Link
                 to="/publish"
+                search={{ mode: "temporary" }}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-extrabold text-deep shadow-lg hover:brightness-105 transition"
               >
                 <Home size={18} />
@@ -303,41 +437,13 @@ export function TemporaryRentalsPage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Wilaya Filter */}
-            <Field label="الولاية (69 ولاية)">
-              <select
-                className={inputCls}
-                value={wilaya}
-                onChange={(e) => {
-                  setWilaya(e.target.value);
-                  setCommune("");
-                }}
-              >
-                <option value="">جميع الولايات</option>
-                {wilayasList.map((x) => (
-                  <option key={x.code} value={x.nameAr}>
-                    {x.code} - {x.nameAr}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            {/* Commune Filter */}
-            <Field label="البلدية">
-              <select
-                className={inputCls}
-                value={commune}
-                onChange={(e) => setCommune(e.target.value)}
-                disabled={!wilaya}
-              >
-                <option value="">{wilaya ? "كل البلديات" : "اختر الولاية أولاً"}</option>
-                {communes.map((cName) => (
-                  <option key={cName} value={cName}>
-                    {cName}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <WilayaCommune
+              wilaya={wilaya}
+              setWilaya={setWilaya}
+              commune={commune}
+              setCommune={setCommune}
+              allOption={true}
+            />
 
             {/* Rental Type Filter */}
             <Field label="نوع العقار المؤقت">
@@ -427,19 +533,29 @@ export function TemporaryRentalsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               جرب تغيير خيارات الفلترة أو إعادة ضبط الولاية لتصفح الشقق المتاحة.
             </p>
-            <button
-              onClick={() => {
-                setWilaya("");
-                setCommune("");
-                setRentalType("");
-                setMinGuests("");
-                setOnly24h(false);
-                setSelectedAmenity("");
-              }}
-              className="mt-4 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground"
-            >
-              إعادة ضبط الفلاتر
-            </button>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                to="/publish"
+                search={{ mode: "temporary" }}
+                className="inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-xs font-black text-deep shadow hover:brightness-105 transition"
+              >
+                <Home size={15} />
+                <span>انشر شقتك للكراء المؤقت الآن</span>
+              </Link>
+              <button
+                onClick={() => {
+                  setWilaya("");
+                  setCommune("");
+                  setRentalType("");
+                  setMinGuests("");
+                  setOnly24h(false);
+                  setSelectedAmenity("");
+                }}
+                className="rounded-lg border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition"
+              >
+                إعادة ضبط الفلاتر
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
