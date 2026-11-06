@@ -20,8 +20,8 @@ export const Route = createFileRoute("/_authenticated/publish")({
   validateSearch: (
     s: Record<string, unknown>,
   ): {
-    mode?: string;
-    type?: string;
+    mode?: string | undefined;
+    type?: string | undefined;
   } => ({
     mode: typeof s["mode"] === "string" ? s["mode"] : undefined,
     type: typeof s["type"] === "string" ? s["type"] : undefined,

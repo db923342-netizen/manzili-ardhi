@@ -298,7 +298,7 @@ function Admin() {
   async function handleApproveDeal(id: string) {
     setLoadingId(`deal-app-${id}`);
     try {
-      await supabase.from("deals").update({ status: "completed" }).eq("id", id);
+      await supabase.from("deals").update({ completed: true }).eq("id", id);
       setDeals((old) =>
         old.map((d) => (d.id === id ? { ...d, s: "مكتملة ومكشوفة الأرقام", paid: true } : d)),
       );

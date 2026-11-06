@@ -1288,7 +1288,7 @@ export function findWilaya(query: string | number | undefined | null): WilayaInf
   // 2. فحص ما إذا كانت القيمة تبدأ برقم ولاية متبوعاً بشرطة مثل: "16 - الجزائر"
   const prefixMatch = str.match(/^(\d{1,2})\s*[-–:]\s*(.+)$/);
   if (prefixMatch) {
-    const code = String(parseInt(prefixMatch[1], 10)).padStart(2, "0");
+    const code = String(parseInt(prefixMatch[1] ?? "", 10)).padStart(2, "0");
     const byCode = wilayasList.find((w) => w.code === code);
     if (byCode) return byCode;
   }
