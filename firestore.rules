@@ -17,39 +17,62 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // User accounts
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId) || isAdmin();
     }
 
+    // Public properties (Real phone is redacted - empty string on public documents)
     match /properties/{propertyId} {
-      // Anyone can view approved properties. Owners and admins can view any property.
-      allow read: if resource.data.status == 'approved' || (isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()));
-      // Authenticated users can submit a property
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      // Property owner or admin can update
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      // Property owner or admin can delete
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+    }
+
+    // ISOLATED PRIVATE CONTACTS (Only accessible by platform admin or listing creator)
+    match /properties_private/{propertyId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow create: if true;
+      allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+    }
+
+    // Public rental and sale requests (Real phone is redacted)
+    match /rental_requests/{requestId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+    }
+
+    // ISOLATED PRIVATE REQUEST CONTACTS (Only admin or request creator)
+    match /rental_requests_private/{requestId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow create: if true;
+      allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
     }
 
     match /inquiries/{inquiryId} {
       allow create: if true;
-      allow read, update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isAdmin() || (isAuthenticated() && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.recipientId));
+      allow update, delete: if isAdmin();
     }
 
     match /temporary_bookings/{bookingId} {
-      // Anyone can create a temporary apartment booking request
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
       allow create: if true;
-      // Admin, or the authenticated creator can view and manage the booking
-      allow read, update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    match /temporary_requests/{requestId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
     }
 
     match /temporary_rentals/{rentalId} {
-      // Anyone can read active temporary rental listings
       allow read: if true;
       allow create: if true;
-      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
     }
 
     match /test/{docId} {

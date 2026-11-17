@@ -162,6 +162,17 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
+  select {
+    cursor: pointer;
+    background-color: var(--color-card);
+    color: var(--color-foreground);
+  }
+
+  select option {
+    background-color: var(--color-card);
+    color: var(--color-foreground);
+  }
 }
 
 @layer base {

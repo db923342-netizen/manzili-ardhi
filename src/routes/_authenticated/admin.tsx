@@ -19,11 +19,20 @@ import {
   MapPin,
   Mail,
   User,
+  PlusCircle,
+  Tag,
+  X,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDA, defaultTemporaryBookings, type Property, type RentalRequest } from "@/lib/data";
+import {
+  formatDA,
+  defaultTemporaryBookings,
+  formatPublishTime,
+  type Property,
+  type RentalRequest,
+} from "@/lib/data";
 import {
   getTemporaryBookingsFromFirestore,
   updateTemporaryBookingStatusInFirestore,
@@ -38,6 +47,11 @@ import {
   adminUsersQuery,
   defaultDealsWithPhones,
   type AdminUser,
+  saleDealsQuery,
+  executeCreateSaleDeal,
+  executeUpdateSaleDeal,
+  executeDeleteSaleDeal,
+  type SaleDeal,
   executeDeleteProperty,
   executeDeleteRequest,
   executeDeleteUser,
@@ -107,6 +121,75 @@ function Admin() {
     const combined = [...local, ...defaultTemporaryBookings].filter((b) => !deleted.has(b.id));
     return combined;
   });
+
+  const { data: saleDeals = [] } = useQuery(saleDealsQuery);
+  const [showNewSaleDealModal, setShowNewSaleDealModal] = useState(false);
+  const [newDealPropId, setNewDealPropId] = useState("");
+  const [newDealSellerId, setNewDealSellerId] = useState("");
+  const [newDealBuyerId, setNewDealBuyerId] = useState("");
+  const [newDealPrice, setNewDealPrice] = useState("25000000");
+  const [newDealFee, setNewDealFee] = useState("50000");
+
+  async function handleCreateSaleDealSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoadingId("new-sale-deal");
+    const res = await executeCreateSaleDeal({
+      sale_property_id: newDealPropId.trim() || null,
+      seller_id: newDealSellerId.trim() || null,
+      buyer_id: newDealBuyerId.trim() || null,
+      sale_price: Number(newDealPrice) || 0,
+      platform_fee: Number(newDealFee) || 0,
+      status: "بانتظار الموافقة",
+    });
+    setLoadingId(null);
+    if (res.success) {
+      toast.success("تم إنشاء صفقة البيع والشراء في Supabase بنجاح.");
+      setShowNewSaleDealModal(false);
+      setNewDealPropId("");
+      setNewDealSellerId("");
+      setNewDealBuyerId("");
+      queryClient.invalidateQueries({ queryKey: saleDealsQuery.queryKey });
+    } else {
+      toast.error(res.error || "تعذر إنشاء الصفقة.");
+    }
+  }
+
+  async function handleApproveSaleDeal(id: string) {
+    setLoadingId(`sale-deal-app-${id}`);
+    const res = await executeUpdateSaleDeal(id, {
+      contacts_released: true,
+      status: "مكتملة ومكشوفة الأرقام",
+    });
+    setLoadingId(null);
+    if (res.success) {
+      toast.success("تمت الموافقة على صفقة البيع وتفعيل كشف الأرقام!");
+      queryClient.invalidateQueries({ queryKey: saleDealsQuery.queryKey });
+    } else {
+      toast.error(res.error || "تعذر تحديث صفقة البيع.");
+    }
+  }
+
+  async function handleDeleteSaleDeal(id: string) {
+    setLoadingId(`sale-deal-del-${id}`);
+    const res = await executeDeleteSaleDeal(id);
+    setLoadingId(null);
+    if (res.success) {
+      toast.success("تم حذف صفقة البيع بنجاح من جدول sale_deals.");
+      queryClient.invalidateQueries({ queryKey: saleDealsQuery.queryKey });
+    } else {
+      toast.error(res.error || "تعذر حذف الصفقة.");
+    }
+  }
+
+  async function handleUpdateSaleDealFee(id: string, newFee: number) {
+    const res = await executeUpdateSaleDeal(id, { platform_fee: newFee });
+    if (res.success) {
+      toast.success(`تم تحديث رسوم المنصة للصفقة إلى: ${formatDA(newFee)}`);
+      queryClient.invalidateQueries({ queryKey: saleDealsQuery.queryKey });
+    } else {
+      toast.error(res.error || "تعذر تحديث الرسوم.");
+    }
+  }
 
   function handleUpdateFeePayer(dealId: string, payer: string) {
     setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, feePayer: payer } : d)));
@@ -354,7 +437,7 @@ function Admin() {
 
   const empty =
     {
-      deals: deals.length,
+      deals: deals.length + saleDeals.length,
       props: properties.length,
       reqs: requests.length,
       temp: tempBookings.length,
@@ -479,7 +562,7 @@ function Admin() {
             <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-xs">
               {
                 {
-                  deals: deals.length,
+                  deals: deals.length + saleDeals.length,
                   props: properties.length,
                   reqs: requests.length,
                   temp: tempBookings.length,
@@ -506,96 +589,335 @@ function Admin() {
         )}
 
         {/* قسم الصفقات */}
-        {tab === "deals" &&
-          deals.map((d) => (
-            <Row
-              key={d.id}
-              title={`${d.id} — ${d.p}`}
-              sub={
-                <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    المالك: <b className="text-foreground">{d.a}</b> • المستأجر:{" "}
-                    <b className="text-foreground">{d.b}</b> • {d.paid ? "مدفوعة" : "غير مدفوعة"}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                      <Phone size={12} className="text-emerald-600" />
-                      هاتف المالك:
-                      <a
-                        href={`tel:${d.ownerPhone.replace(/\s+/g, "")}`}
-                        dir="ltr"
-                        className="font-mono underline hover:text-emerald-600 font-bold"
-                      >
-                        {d.ownerPhone}
-                      </a>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                      <Phone size={12} className="text-emerald-600" />
-                      هاتف المستأجر:
-                      <a
-                        href={`tel:${d.renterPhone.replace(/\s+/g, "")}`}
-                        dir="ltr"
-                        className="font-mono underline hover:text-emerald-600 font-bold"
-                      >
-                        {d.renterPhone}
-                      </a>
-                    </span>
-                    <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-deep">
-                      ظاهر للأدمن فقط • محمي بين الطرفين
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 pt-1.5 text-xs">
-                    <span className="font-bold text-foreground">الطرف المكلف بدفع الرسوم:</span>
-                    <select
-                      value={d.feePayer || "المستأجر"}
-                      onChange={(e) => handleUpdateFeePayer(d.id, e.target.value)}
-                      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-bold text-primary cursor-pointer hover:border-gold"
-                    >
-                      <option value="المستأجر">المستأجر (1,000 د.ج)</option>
-                      <option value="مالك العقار">مالك العقار (1,000 د.ج)</option>
-                      <option value="مناصفة بين الطرفين">
-                        مناصفة بين الطرفين (500 د.ج / 500 د.ج)
-                      </option>
-                    </select>
-                    <span className="text-[11px] text-muted-foreground">
-                      (خيار المدير لتحديد جهة تحصيل الرسوم)
-                    </span>
-                  </div>
-                </div>
-              }
-              status={d.s}
-            >
-              {d.s === "بانتظار الموافقة" && (
-                <button
-                  type="button"
-                  disabled={loadingId === `deal-app-${d.id}`}
-                  onClick={() => handleApproveDeal(d.id)}
-                  className={`${btn} bg-primary text-primary-foreground hover:bg-primary/90`}
-                >
-                  {loadingId === `deal-app-${d.id}` ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Check size={13} />
-                  )}
-                  موافقة وكشف الأرقام
-                </button>
-              )}
+        {tab === "deals" && (
+          <div className="space-y-4">
+            {/* رأس تحكم صفقات البيع والشراء */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  إدارة صفقات البيع والشراء (sale_deals)
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  إنشاء وتعديل وحذف الصفقات الخاصة بالبيع، تحديد رسوم المنصة، وتفعيل كشف الأرقام بعد
+                  إتمام الإجراءات
+                </p>
+              </div>
               <button
                 type="button"
-                disabled={loadingId === `deal-rej-${d.id}`}
-                onClick={() => handleRejectDeal(d.id)}
-                className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
-                title="حذف هذه الصفقة"
+                onClick={() => setShowNewSaleDealModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition shrink-0"
               >
-                {loadingId === `deal-rej-${d.id}` ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Trash2 size={13} />
-                )}
-                {d.s === "بانتظار الموافقة" ? "رفض وإلغاء" : "حذف"}
+                <PlusCircle size={15} />
+                إنشاء صفقة بيع وشراء جديدة
               </button>
-            </Row>
-          ))}
+            </div>
+
+            {/* نافذة منبثقة لإنشاء صفقة بيع جديدة للمدير فقط */}
+            {showNewSaleDealModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+                <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+                      <Handshake className="text-primary" size={20} />
+                      إنشاء صفقة بيع وشراء جديدة (صلاحية المدير)
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewSaleDealModal(false)}
+                      className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCreateSaleDealSubmit} className="space-y-3.5 text-xs">
+                    <div>
+                      <label className="block font-semibold mb-1 text-foreground">
+                        معرّف عقار البيع (sale_property_id):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="مثال: sp-123456 أو انسخ ID العقار من قسم العقارات"
+                        value={newDealPropId}
+                        onChange={(e) => setNewDealPropId(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold mb-1 text-foreground">
+                          معرّف البائع (seller_id / auth.uid):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="UUID البائع المسجل"
+                          value={newDealSellerId}
+                          onChange={(e) => setNewDealSellerId(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-foreground">
+                          معرّف المشتري (buyer_id / auth.uid):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="UUID المشتري المسجل"
+                          value={newDealBuyerId}
+                          onChange={(e) => setNewDealBuyerId(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold mb-1 text-foreground">
+                          سعر البيع الإجمالي (د.ج):
+                        </label>
+                        <input
+                          type="number"
+                          value={newDealPrice}
+                          onChange={(e) => setNewDealPrice(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-foreground">
+                          رسوم المنصة المحددة من الإدارة (د.ج):
+                        </label>
+                        <input
+                          type="number"
+                          value={newDealFee}
+                          onChange={(e) => setNewDealFee(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold text-primary focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                      <button
+                        type="button"
+                        onClick={() => setShowNewSaleDealModal(false)}
+                        className="rounded-lg bg-secondary px-4 py-2 text-xs font-medium hover:bg-secondary/80"
+                      >
+                        إلغاء
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loadingId === "new-sale-deal"}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+                      >
+                        {loadingId === "new-sale-deal" && (
+                          <Loader2 size={13} className="animate-spin" />
+                        )}
+                        حفظ الصفقة في Supabase
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* عرض صفقات البيع والشراء المسجلة في sale_deals */}
+            {saleDeals.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-primary flex items-center gap-1.5">
+                  <Tag size={13} />
+                  صفقات البيع والشراء الموثقة في Supabase ({saleDeals.length}):
+                </p>
+                {saleDeals.map((sd) => {
+                  const isAppLoading = loadingId === `sale-deal-app-${sd.id}`;
+                  const isDelLoading = loadingId === `sale-deal-del-${sd.id}`;
+                  return (
+                    <Row
+                      key={sd.id}
+                      title={`صفقة بيع #${sd.id.slice(0, 8)} • عقار: ${sd.sale_property_id || "غير مسند"}`}
+                      sub={
+                        <div className="space-y-1.5">
+                          <p className="text-xs text-muted-foreground">
+                            البائع:{" "}
+                            <b className="text-foreground font-mono">
+                              {sd.seller_id ? sd.seller_id.slice(0, 8) + "..." : "غير محدد"}
+                            </b>
+                            {" • "}
+                            المشتري:{" "}
+                            <b className="text-foreground font-mono">
+                              {sd.buyer_id ? sd.buyer_id.slice(0, 8) + "..." : "غير محدد"}
+                            </b>
+                            {" • "}
+                            سعر العقار:{" "}
+                            <b className="text-foreground font-bold">{formatDA(sd.sale_price)}</b>
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+                              رسوم المنصة المحددة: {formatDA(sd.platform_fee)}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <label className="text-muted-foreground text-[11px]">
+                                تعديل الرسوم:
+                              </label>
+                              <input
+                                type="number"
+                                defaultValue={sd.platform_fee}
+                                onBlur={(e) => {
+                                  const val = Number(e.target.value);
+                                  if (!isNaN(val) && val !== sd.platform_fee) {
+                                    handleUpdateSaleDealFee(sd.id, val);
+                                  }
+                                }}
+                                className="w-24 rounded border border-border bg-background px-2 py-0.5 text-xs font-mono font-bold"
+                              />
+                            </span>
+                            <span className="rounded-full bg-gold-soft px-2.5 py-0.5 text-[11px] font-semibold text-deep">
+                              {sd.contacts_released
+                                ? "تم فك التشفير وكشف الأرقام للطرفين"
+                                : "الأرقام مشفرة حتى اعتماد الإدارة"}
+                            </span>
+                          </div>
+                        </div>
+                      }
+                      status={sd.status}
+                    >
+                      {!sd.contacts_released && (
+                        <button
+                          type="button"
+                          disabled={isAppLoading}
+                          onClick={() => handleApproveSaleDeal(sd.id)}
+                          className={`${btn} bg-primary text-primary-foreground hover:bg-primary/90`}
+                        >
+                          {isAppLoading ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Check size={13} />
+                          )}
+                          موافقة وكشف الأرقام
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isDelLoading}
+                        onClick={() => handleDeleteSaleDeal(sd.id)}
+                        className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
+                      >
+                        {isDelLoading ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
+                        حذف
+                      </button>
+                    </Row>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* عرض صفقات الإيجار العادية */}
+            {deals.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                  <Handshake size={13} />
+                  صفقات الإيجار والخدمات الأخرى ({deals.length}):
+                </p>
+                {deals.map((d) => (
+                  <Row
+                    key={d.id}
+                    title={`${d.id} — ${d.p}`}
+                    sub={
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-muted-foreground">
+                          المالك: <b className="text-foreground">{d.a}</b> • المستأجر:{" "}
+                          <b className="text-foreground">{d.b}</b> •{" "}
+                          {d.paid ? "مدفوعة" : "غير مدفوعة"}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            <Phone size={12} className="text-emerald-600" />
+                            هاتف المالك:
+                            <a
+                              href={`tel:${d.ownerPhone.replace(/\s+/g, "")}`}
+                              dir="ltr"
+                              className="font-mono underline hover:text-emerald-600 font-bold"
+                            >
+                              {d.ownerPhone}
+                            </a>
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            <Phone size={12} className="text-emerald-600" />
+                            هاتف المستأجر:
+                            <a
+                              href={`tel:${d.renterPhone.replace(/\s+/g, "")}`}
+                              dir="ltr"
+                              className="font-mono underline hover:text-emerald-600 font-bold"
+                            >
+                              {d.renterPhone}
+                            </a>
+                          </span>
+                          <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-deep">
+                            ظاهر للأدمن فقط • محمي بين الطرفين
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-1.5 text-xs">
+                          <span className="font-bold text-foreground">
+                            الطرف المكلف بدفع الرسوم:
+                          </span>
+                          <select
+                            value={d.feePayer || "المستأجر"}
+                            onChange={(e) => handleUpdateFeePayer(d.id, e.target.value)}
+                            className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-bold text-primary cursor-pointer hover:border-gold"
+                          >
+                            <option value="المستأجر">المستأجر (1,000 د.ج)</option>
+                            <option value="مالك العقار">مالك العقار (1,000 د.ج)</option>
+                            <option value="مناصفة بين الطرفين">
+                              مناصفة بين الطرفين (500 د.ج / 500 د.ج)
+                            </option>
+                          </select>
+                          <span className="text-[11px] text-muted-foreground">
+                            (خيار المدير لتحديد جهة تحصيل الرسوم)
+                          </span>
+                        </div>
+                      </div>
+                    }
+                    status={d.s}
+                  >
+                    {d.s === "بانتظار الموافقة" && (
+                      <button
+                        type="button"
+                        disabled={loadingId === `deal-app-${d.id}`}
+                        onClick={() => handleApproveDeal(d.id)}
+                        className={`${btn} bg-primary text-primary-foreground hover:bg-primary/90`}
+                      >
+                        {loadingId === `deal-app-${d.id}` ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Check size={13} />
+                        )}
+                        موافقة وكشف الأرقام
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={loadingId === `deal-rej-${d.id}`}
+                      onClick={() => handleRejectDeal(d.id)}
+                      className={`${btn} bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-95`}
+                      title="حذف هذه الصفقة"
+                    >
+                      {loadingId === `deal-rej-${d.id}` ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={13} />
+                      )}
+                      {d.s === "بانتظار الموافقة" ? "رفض وإلغاء" : "حذف"}
+                    </button>
+                  </Row>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* قسم العقارات مع إظهار رقم هاتف صاحب العقار غير مخفي للأدمن */}
         {tab === "props" &&
@@ -610,9 +932,15 @@ function Admin() {
                 title={p.title}
                 sub={
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">
-                      {p.wilaya} {p.commune ? `• ${p.commune}` : ""} • المالك:{" "}
-                      <b className="text-foreground">{p.owner}</b> • {formatDA(p.price)}
+                    <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {p.wilaya} {p.commune ? `• ${p.commune}` : ""} • المالك:{" "}
+                        <b className="text-foreground">{p.owner}</b> • {formatDA(p.price)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        <Clock size={11} className="text-gold" />
+                        وقت النشر: {formatPublishTime(p.publishedAt || p.createdAt)}
+                      </span>
                     </p>
                     <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
@@ -681,9 +1009,15 @@ function Admin() {
                 title={r.title}
                 sub={
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">
-                      {r.wilaya} {r.commune ? `• ${r.commune}` : ""} • صاحب الطلب:{" "}
-                      <b className="text-foreground">{r.author}</b> • السعر: {formatDA(r.budget)}
+                    <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {r.wilaya} {r.commune ? `• ${r.commune}` : ""} • صاحب الطلب:{" "}
+                        <b className="text-foreground">{r.author}</b> • السعر: {formatDA(r.budget)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        <Clock size={11} className="text-gold" />
+                        وقت النشر: {formatPublishTime(r.createdAt || r.date)}
+                      </span>
                     </p>
                     <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">

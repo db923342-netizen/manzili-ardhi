@@ -3,10 +3,22 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, checkIsAdmin } from "@/lib/auth";
 import { useState, useMemo, type ReactNode } from "react";
-import { Lock, Menu, X, MapPin, BedDouble, Ruler, Home, Phone, ShieldCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  Lock,
+  Menu,
+  X,
+  MapPin,
+  BedDouble,
+  Ruler,
+  Home,
+  Phone,
+  ShieldCheck,
+  Clock,
+} from "lucide-react";
+import { cn, maskPhoneNumbers } from "@/lib/utils";
 import {
   formatDA,
+  formatPublishTime,
   wilayas,
   wilayasList,
   getCommunesForWilaya,
@@ -18,10 +30,24 @@ import {
 } from "@/lib/data";
 
 const nav = [
-  { to: "/search", label: "العقارات" },
-  { to: "/temporary-rentals", label: "كراء شقق مؤقتة", badge: "24 سا" },
-  { to: "/requests", label: "طلبات البحث" },
-  { to: "/fees", label: "الرسوم" },
+  {
+    to: "/search",
+    label: "ركن الكراء الدائم",
+    badge: "شهري/سنوي",
+    badgeCls: "bg-emerald-500/25 border-emerald-400/50 text-emerald-300",
+  },
+  {
+    to: "/temporary-rentals",
+    label: "ركن الكراء المؤقت",
+    badge: "24 سا",
+    badgeCls: "bg-amber-500/25 border-amber-400/50 text-amber-300",
+  },
+  {
+    to: "/sales",
+    label: "ركن البيع والشراء النهائي",
+    badge: "تمليك",
+    badgeCls: "bg-blue-500/25 border-blue-400/50 text-blue-300",
+  },
   { to: "/profile", label: "حسابي" },
   { to: "/admin", label: "لوحة المدير" },
 ] as const;
@@ -62,9 +88,9 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2.5 font-display text-lg font-bold">
           <img
-            src="/assets/icon-circle.png"
+            src="/icon.png"
             alt="شعار منزلي وأرضي"
-            className="h-10 w-10 shrink-0 rounded-full border border-gold/40 shadow-sm object-cover"
+            className="h-10 w-10 shrink-0 rounded-xl border border-emerald-500/40 shadow-sm object-cover"
           />
           <span>منزلي وأرضي</span>
         </Link>
@@ -78,7 +104,11 @@ export function Header() {
             >
               <span>{n.label}</span>
               {"badge" in n && n.badge && (
-                <span className="rounded-full bg-gold/20 border border-gold/40 px-1.5 py-0.2 text-[10px] font-black text-gold">
+                <span
+                  className={`rounded-full border px-1.5 py-0.2 text-[10px] font-black ${
+                    "badgeCls" in n ? n.badgeCls : "bg-gold/20 border-gold/40 text-gold"
+                  }`}
+                >
                   {n.badge}
                 </span>
               )}
@@ -106,7 +136,11 @@ export function Header() {
             >
               <span>{n.label}</span>
               {"badge" in n && n.badge && (
-                <span className="rounded-full bg-gold/20 border border-gold/40 px-1.5 py-0.5 text-[10px] font-black text-gold">
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
+                    "badgeCls" in n ? n.badgeCls : "bg-gold/20 border-gold/40 text-gold"
+                  }`}
+                >
                   {n.badge}
                 </span>
               )}
@@ -226,9 +260,9 @@ export function Footer() {
         <div>
           <div className="flex items-center gap-3">
             <img
-              src="/assets/icon-circle.png"
+              src="/icon.png"
               alt="شعار منزلي وأرضي"
-              className="h-11 w-11 shrink-0 rounded-full border border-gold/40 shadow-sm object-cover"
+              className="h-11 w-11 shrink-0 rounded-xl border border-emerald-500/40 shadow-sm object-cover"
             />
             <div>
               <p className="font-display text-lg font-bold text-gold">منزلي وأرضي</p>
@@ -248,7 +282,7 @@ export function Footer() {
           <Link to="/request-new">انشر طلب بحث</Link>
         </div>
         <div className="flex flex-col gap-2 opacity-85">
-          <Link to="/fees">الرسوم والأسعار</Link>
+          <Link to="/sales">ركن البيع والشراء</Link>
           <Link to="/register">إنشاء حساب</Link>
         </div>
       </div>
@@ -274,29 +308,24 @@ export function PageTitle({ title, sub }: { title: string; sub?: string }) {
 }
 
 export const inputCls =
-  "w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring";
+  "w-full rounded-lg border border-input bg-card text-foreground px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring cursor-pointer transition";
 export const btnPrimary =
   "rounded-lg bg-primary px-5 py-2.5 font-bold text-primary-foreground hover:opacity-90";
 export const btnGold = "rounded-lg bg-gold px-5 py-2.5 font-bold text-deep hover:opacity-90";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block space-y-1.5">
-      <span className="text-sm font-medium">{label}</span>
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-foreground">{label}</label>
       {children}
-    </label>
+    </div>
   );
 }
 
-export function WilayaCommune({
-  wilaya,
-  setWilaya,
-  commune,
-  setCommune,
-  allOption = false,
-  required = false,
-  disabled = false,
-}: {
+export { CustomSelect, CustomWilayaCommune, type SelectOption } from "./custom-select";
+import { CustomWilayaCommune } from "./custom-select";
+
+export function WilayaCommune(props: {
   wilaya: string;
   setWilaya: (w: string) => void;
   commune?: string;
@@ -305,156 +334,7 @@ export function WilayaCommune({
   required?: boolean;
   disabled?: boolean;
 }) {
-  const [customMode, setCustomMode] = useState(false);
-
-  // Normalize wilaya: handles code "16", arabic "الجزائر", latin "Alger", composite "16 - الجزائر"
-  const currentWilayaObj = useMemo(() => findWilaya(wilaya), [wilaya]);
-  const activeWilayaName = currentWilayaObj ? currentWilayaObj.nameAr : normalizeWilayaName(wilaya);
-
-  // Official communes for the selected wilaya
-  const baseCommunes = useMemo(
-    () => (activeWilayaName ? getCommunesForWilaya(activeWilayaName) : []),
-    [activeWilayaName],
-  );
-
-  // Ensure any current commune value is always present in the options list so it never renders blank
-  const displayCommunes = useMemo(() => {
-    const list = [...baseCommunes];
-    const trimmed = (commune ?? "").trim();
-    if (trimmed && trimmed !== "__custom__" && !list.includes(trimmed)) {
-      list.unshift(trimmed);
-    }
-    return list;
-  }, [baseCommunes, commune]);
-
-  const handleWilayaChange = (val: string) => {
-    setWilaya(val);
-    setCommune?.("");
-    setCustomMode(false);
-  };
-
-  const isCustom = customMode || (!!commune && !baseCommunes.includes(commune) && commune !== "");
-
-  return (
-    <>
-      <Field label="الولاية (69 ولاية)">
-        <select
-          className={inputCls}
-          value={activeWilayaName}
-          required={required}
-          disabled={disabled}
-          onChange={(e) => handleWilayaChange(e.target.value)}
-        >
-          <option value="">
-            {allOption ? "كل الولايات (01 إلى 69)" : "اختر الولاية (01 إلى 69)"}
-          </option>
-          {wilayasList.map((w) => (
-            <option key={w.code} value={w.nameAr}>
-              {w.code} - {w.nameAr}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      <Field label="البلدية">
-        {isCustom ? (
-          <div className="space-y-1">
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                required={required && !allOption}
-                className={`${inputCls} pl-16`}
-                placeholder={
-                  activeWilayaName
-                    ? `اكتب اسم بلدية في ${activeWilayaName}...`
-                    : "اكتب اسم البلدية أو الحي..."
-                }
-                value={commune ?? ""}
-                onChange={(e) => setCommune?.(e.target.value)}
-                disabled={disabled || (!activeWilayaName && !allOption)}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomMode(false);
-                  setCommune?.(baseCommunes[0] || "");
-                }}
-                className="absolute left-2.5 rounded bg-secondary px-2 py-1 text-xs font-bold text-primary hover:bg-gold hover:text-deep transition cursor-pointer"
-                title="الرجوع إلى القائمة المنسدلة"
-              >
-                قائمة
-              </button>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground px-0.5">
-              <span>كتابة بلدية أو حي يدوياً</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomMode(false);
-                  setCommune?.("");
-                }}
-                className="font-bold text-primary hover:underline cursor-pointer"
-              >
-                العودة للقائمة المنسدلة ←
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <select
-              className={inputCls}
-              value={commune ?? ""}
-              required={required && !allOption && !!activeWilayaName}
-              disabled={disabled || (!activeWilayaName && !allOption)}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === "__custom__") {
-                  setCustomMode(true);
-                  setCommune?.("");
-                } else {
-                  setCommune?.(val);
-                }
-              }}
-            >
-              <option value="">
-                {!activeWilayaName
-                  ? allOption
-                    ? "كل البلديات (اختر ولاية أولاً)"
-                    : "اختر الولاية أولاً"
-                  : allOption
-                    ? `كل بلديات ${activeWilayaName}`
-                    : `اختر بلدية من ${activeWilayaName}`}
-              </option>
-              {displayCommunes.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-              {activeWilayaName && (
-                <option value="__custom__">✏️ بلدية أو حي آخر (كتابة يدوية)...</option>
-              )}
-            </select>
-            {activeWilayaName && (
-              <p className="text-[11px] text-muted-foreground px-0.5 flex items-center justify-between">
-                <span>
-                  {displayCommunes.length > 0
-                    ? `${displayCommunes.length} بلدية متوفرة`
-                    : "قائمة البلديات"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCustomMode(true)}
-                  className="font-bold text-primary hover:underline hover:text-gold transition cursor-pointer"
-                >
-                  كتابة يدوية ✏️
-                </button>
-              </p>
-            )}
-          </div>
-        )}
-      </Field>
-    </>
-  );
+  return <CustomWilayaCommune {...props} />;
 }
 
 export function TypeSelect({
@@ -478,6 +358,8 @@ export function TypeSelect({
 }
 
 export function PropertyCard({ p }: { p: Property }) {
+  const publishTime = formatPublishTime(p.publishedAt || p.createdAt);
+
   return (
     <Link
       to="/property/$id"
@@ -491,12 +373,16 @@ export function PropertyCard({ p }: { p: Property }) {
           loading="lazy"
           className="h-full w-full object-cover transition group-hover:scale-105"
         />
-        <span className="absolute right-3 top-3 rounded-full bg-deep px-3 py-1 text-xs text-deep-foreground">
+        <span className="absolute right-3 top-3 rounded-full bg-deep/90 backdrop-blur-sm px-3 py-1 text-xs text-deep-foreground font-semibold">
           {p.type}
+        </span>
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-background/95 backdrop-blur-sm px-2.5 py-1 text-[11px] font-bold text-foreground shadow-sm">
+          <Clock size={11} className="text-gold" />
+          {publishTime}
         </span>
       </div>
       <div className="space-y-2 p-4">
-        <h3 className="font-bold">{p.title}</h3>
+        <h3 className="font-bold line-clamp-1">{maskPhoneNumbers(p.title)}</h3>
         <p className="flex items-center gap-1 text-sm text-muted-foreground">
           <MapPin size={14} />
           {p.commune}، {p.wilaya}
@@ -511,16 +397,24 @@ export function PropertyCard({ p }: { p: Property }) {
             {p.area} م²
           </span>
         </div>
-        <p className="font-display text-lg font-bold text-primary">
-          {formatDA(p.price)}{" "}
-          <span className="text-xs font-normal text-muted-foreground">/ شهر</span>
-        </p>
+        <div className="flex items-center justify-between pt-1">
+          <p className="font-display text-lg font-bold text-primary">
+            {formatDA(p.price)}{" "}
+            <span className="text-xs font-normal text-muted-foreground">/ شهر</span>
+          </p>
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Clock size={11} className="text-gold" />
+            وقت النشر: {publishTime}
+          </span>
+        </div>
       </div>
     </Link>
   );
 }
 
 export function RequestCard({ r }: { r: RentalRequest }) {
+  const publishTime = formatPublishTime(r.createdAt || r.date);
+
   return (
     <Link
       to="/request/$id"
@@ -529,9 +423,12 @@ export function RequestCard({ r }: { r: RentalRequest }) {
     >
       <div className="flex items-center justify-between text-xs">
         <span className="rounded-full bg-gold-soft px-3 py-1 font-medium">{r.type}</span>
-        <span className="text-muted-foreground">{r.date}</span>
+        <span className="inline-flex items-center gap-1 text-muted-foreground font-medium">
+          <Clock size={12} className="text-gold" />
+          وقت النشر: {publishTime}
+        </span>
       </div>
-      <h3 className="mt-3 font-bold">{r.title}</h3>
+      <h3 className="mt-3 font-bold">{maskPhoneNumbers(r.title)}</h3>
       <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
         <MapPin size={14} />
         {r.commune}، {r.wilaya}
@@ -546,13 +443,80 @@ export function RequestCard({ r }: { r: RentalRequest }) {
 export function HiddenPhone({
   label = "رقم هاتف صاحب العقار",
   phone,
+  listingId,
+  listingType = "property",
   isAdmin = false,
 }: {
   label?: string | undefined;
   phone?: string | undefined;
+  listingId?: string | undefined;
+  listingType?: "property" | "request" | undefined;
   isAdmin?: boolean | undefined;
 }) {
-  if (isAdmin && phone) {
+  const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // If phone is already provided (e.g., in authenticated admin dashboard view)
+  const effectivePhone = revealedPhone || (isAdmin && phone ? phone : null);
+
+  const handleRevealClick = async () => {
+    if (!listingId) {
+      setErrorMessage("معرف الإعلان غير متوفر للتحقق من الصلاحيات.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        setErrorMessage("يجب تسجيل الدخول أولاً للتحقق من هويتك وصلاحياتك لكشف الرقم.");
+        setIsLoading(false);
+        return;
+      }
+
+      const res = await fetch("/api/contacts/reveal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ listingId, listingType }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) {
+        setErrorMessage(
+          result.error ||
+            "غير مصرح بكشف هذا الرقم. يتطلب كشف الرقم موافقة الإدارة وتوثيق صفقة رسمية (deals.contacts_released).",
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      setRevealedPhone(result.phone);
+      if (result.reason === "admin") {
+        setReason("مصرح لك بصفتك مسؤول المنصة");
+      } else if (result.reason === "owner") {
+        setReason("هذا هو رقم هاتفك المسجل");
+      } else if (result.reason === "deal_approved") {
+        setReason("تم كشف الرقم بموجب موافقة الإدارة على الصفقة");
+      } else {
+        setReason("تم التحقق من الصلاحية وكشف الرقم بنجاح");
+      }
+    } catch {
+      setErrorMessage("تعذر الاتصال بخادم التحقق الأمني. يرجى المحاولة لاحقاً.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (effectivePhone) {
     return (
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-card-foreground">
         <div className="flex items-center justify-between gap-2">
@@ -561,42 +525,64 @@ export function HiddenPhone({
             {label}
           </p>
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-            <ShieldCheck size={13} /> غير مخفي عن الأدمن
+            <ShieldCheck size={13} /> {isAdmin ? "غير مخفي عن الأدمن" : "كشف مصرح وآمن"}
           </span>
         </div>
         <a
-          href={`tel:${phone.replace(/\s+/g, "")}`}
+          href={`tel:${effectivePhone.replace(/\s+/g, "")}`}
           className="mt-2 block font-mono text-xl font-bold tracking-wider text-emerald-700 hover:underline dark:text-emerald-300"
           dir="ltr"
           title="الاتصال المباشر بالرقم"
         >
-          {phone}
+          {effectivePhone}
         </a>
         <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          هذا الرقم ظاهر لك بصفتك مسؤول المنصة. وهو مخفي تماماً ومشفر عن المستخدمين العاديين لحماية
-          الخصوصية.
+          {reason ||
+            (isAdmin
+              ? "هذا الرقم ظاهر لك بصفتك مسؤول المنصة. وهو محمي تماماً على الخادم عن المتصفحات العامة."
+              : "تم التحقق من هويتك وصلاحياتك من جهة الخادم بنجاح.")}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-dashed border-gold bg-gold-soft p-4 text-card-foreground">
+    <div className="rounded-xl border border-dashed border-gold bg-gold-soft p-4 text-card-foreground space-y-3">
       <div className="flex items-center justify-between">
         <p className="flex items-center gap-2 text-sm font-bold text-deep">
           <Phone size={15} className="text-primary" />
           {label}
         </p>
         <span className="inline-flex items-center gap-1 rounded-full bg-deep/10 px-2 py-0.5 text-xs font-semibold text-deep">
-          <Lock size={12} /> محمي ومشفر
+          <Lock size={12} /> محمي من الخادم
         </span>
       </div>
-      <p className="mt-2 font-mono text-lg font-bold tracking-widest text-primary" dir="ltr">
-        0X •• •• •• ••
-      </p>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        رقم الهاتف مخفي لحماية خصوصية المستخدمين فيما بينهم. يتم كشف الرقم للطرف الآخر فقط بعد إتمام
-        الصفقة وموافقة الإدارة.
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-mono text-lg font-bold tracking-widest text-primary" dir="ltr">
+          0X •• •• •• ••
+        </p>
+        {listingId && (
+          <button
+            type="button"
+            onClick={handleRevealClick}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary hover:text-white transition cursor-pointer disabled:opacity-50"
+          >
+            {isLoading ? "جاري التحقق..." : "طلب كشف الرقم (تحقق أمني)"}
+          </button>
+        )}
+      </div>
+
+      {errorMessage && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive leading-relaxed">
+          {errorMessage}
+        </div>
+      )}
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        أرقام الهواتف لا تُرسل إلى المتصفح وتُحفظ في مستودعات خادم مشفرة. كشف الأرقام مقيد بمسؤولي
+        المنصة أو للأطراف بعد إتمام الصفقة وموافقة الإدارة (deals.contacts_released).
       </p>
     </div>
   );

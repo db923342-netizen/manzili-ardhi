@@ -1,4 +1,3 @@
-// @ts-nocheck -- legacy module typed against an older schema; pending rewrite
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import {
@@ -26,34 +25,56 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Info,
+  PlusCircle,
+  FileText,
+  Send,
+  Building2,
+  Tag,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { temporaryRentalsQuery } from "@/lib/listings";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  temporaryRentalsQuery,
+  temporaryRequestsQuery,
+  executeCreateTemporaryRequest,
+} from "@/lib/listings";
 import { supabase } from "@/integrations/supabase/client";
 import {
   formatDA,
+  formatPublishTime,
   wilayasList,
   getCommunesForWilaya,
   normalizeWilayaName,
   fees,
   type TemporaryRental,
   type TemporaryBooking,
+  type TemporaryRentalRequest,
 } from "@/lib/data";
 import { saveTemporaryBookingToFirestore } from "@/lib/firebase";
-import { PageTitle, Field, inputCls, btnGold, WilayaCommune } from "@/components/site";
+import {
+  PageTitle,
+  Field,
+  inputCls,
+  btnGold,
+  btnPrimary,
+  WilayaCommune,
+  HiddenPhone,
+} from "@/components/site";
+import { maskPhoneNumbers } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/temporary-rentals")({
   validateSearch: (
     s: Record<string, unknown>,
   ): {
-    w?: string | undefined;
-    c?: string | undefined;
-    type?: string | undefined;
-    minPrice?: string | undefined;
-    maxPrice?: string | undefined;
-    guests?: string | undefined;
+    section?: "offers" | "requests";
+    w?: string;
+    c?: string;
+    type?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    guests?: string;
   } => ({
+    section: s["section"] === "requests" ? "requests" : "offers",
     w: typeof s["w"] === "string" ? s["w"] : undefined,
     c: typeof s["c"] === "string" ? s["c"] : undefined,
     type: typeof s["type"] === "string" ? s["type"] : undefined,
@@ -82,6 +103,11 @@ export const Route = createFileRoute("/temporary-rentals")({
 
 export function TemporaryRentalsPage() {
   const searchParams = Route.useSearch();
+
+  const queryClient = useQueryClient();
+  const [activeSection, setActiveSection] = useState<"offers" | "requests">(
+    searchParams.section ?? "offers",
+  );
 
   // Filters state
   const [wilaya, setWilaya] = useState(searchParams.w ?? "");
@@ -114,6 +140,23 @@ export function TemporaryRentalsPage() {
   const [specialNotes, setSpecialNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
+
+  // Temporary Rental Requests State & Queries
+  const { data: tempRequests = [], isLoading: isLoadingRequests } =
+    useQuery(temporaryRequestsQuery);
+  const [showNewRequestModal, setShowNewRequestModal] = useState(false);
+  const [newReqTitle, setNewReqTitle] = useState("");
+  const [newReqType, setNewReqType] = useState<"شقة" | "استوديو" | "فيلا" | "دوبلكس">("شقة");
+  const [newReqWilaya, setNewReqWilaya] = useState("");
+  const [newReqCommune, setNewReqCommune] = useState("");
+  const [newReqCheckIn, setNewReqCheckIn] = useState(todayStr);
+  const [newReqDuration, setNewReqDuration] = useState(2);
+  const [newReqGuests, setNewReqGuests] = useState(2);
+  const [newReqBudget, setNewReqBudget] = useState(7000);
+  const [newReqAuthor, setNewReqAuthor] = useState("");
+  const [newReqPhone, setNewReqPhone] = useState("");
+  const [newReqDetails, setNewReqDetails] = useState("");
+  const [isSubmittingReq, setIsSubmittingReq] = useState(false);
 
   // Communes for selected wilaya
   const communes = useMemo(() => getCommunesForWilaya(wilaya), [wilaya]);
@@ -170,6 +213,69 @@ export function TemporaryRentalsPage() {
     selectedAmenity,
     sortBy,
   ]);
+
+  // Filter temporary requests
+  const filteredTempRequests = useMemo(() => {
+    const normSearchW = normalizeWilayaName(wilaya);
+    return tempRequests.filter((r) => {
+      if (wilaya) {
+        const rNorm = normalizeWilayaName(r.wilaya);
+        if (rNorm !== normSearchW && r.wilaya !== wilaya) return false;
+      }
+      if (commune) {
+        const cNorm = commune.trim().toLowerCase();
+        const rCommune = (r.commune ?? "").trim().toLowerCase();
+        if (!rCommune.includes(cNorm) && rCommune !== cNorm) return false;
+      }
+      if (rentalType && r.type !== rentalType) return false;
+      return true;
+    });
+  }, [tempRequests, wilaya, commune, rentalType]);
+
+  async function handleCreateNewRequest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newReqTitle.trim()) {
+      toast.error("يرجى كتابة عنوان مختصر لطلب الكراء المؤقت.");
+      return;
+    }
+    if (!newReqWilaya) {
+      toast.error("يرجى تحديد ولاية الإقامة المطلوبة.");
+      return;
+    }
+    if (!newReqPhone || newReqPhone.trim().length < 9) {
+      toast.error("يرجى إدخال رقم هاتف جزائري صحيح للتواصل.");
+      return;
+    }
+
+    setIsSubmittingReq(true);
+    try {
+      await executeCreateTemporaryRequest(
+        {
+          title: newReqTitle.trim(),
+          type: newReqType,
+          wilaya: newReqWilaya,
+          commune: newReqCommune || "وسط المدينة",
+          checkInDate: newReqCheckIn,
+          durationDays: Number(newReqDuration) || 1,
+          guestsCount: Number(newReqGuests) || 2,
+          budgetPerNight: Number(newReqBudget) || 5000,
+          author: newReqAuthor.trim() || "زائر مسجل",
+          contactPhone: newReqPhone.trim(),
+          details: newReqDetails.trim(),
+        },
+        queryClient,
+      );
+      toast.success("تم نشر طلب الكراء المؤقت بنجاح وسيكون متاحاً لجميع الملاك فوراً!");
+      setShowNewRequestModal(false);
+      setNewReqTitle("");
+      setNewReqPhone("");
+      setNewReqDetails("");
+    } catch {
+      toast.error("حدث خطأ أثناء نشر الطلب. يرجى المحاولة ثانية.");
+    } finally {
+      setIsSubmittingReq(false);
+    }
+  }
 
   // Handle Booking Submit
   async function handleBookingSubmit(e: React.FormEvent) {
@@ -426,266 +532,556 @@ export function TemporaryRentalsPage() {
 
       {/* Main Search & Filters Card */}
       <div id="rentals-list" className="mx-auto -mt-6 max-w-6xl px-4">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-xl">
-          <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
-            <div className="flex items-center gap-2 font-bold text-foreground">
-              <SlidersHorizontal size={18} className="text-gold" />
-              <span>تخصيص البحث عن شقة مؤقتة</span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {filteredRentals.length} شقة متوفرة حاليًا
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <WilayaCommune
-              wilaya={wilaya}
-              setWilaya={setWilaya}
-              commune={commune}
-              setCommune={setCommune}
-              allOption={true}
-            />
-
-            {/* Rental Type Filter */}
-            <Field label="نوع العقار المؤقت">
-              <select
-                className={inputCls}
-                value={rentalType}
-                onChange={(e) => setRentalType(e.target.value)}
-              >
-                <option value="">كل الأنواع</option>
-                <option value="شقة">شقة مفروشة</option>
-                <option value="استوديو">استوديو مجهز</option>
-                <option value="فيلا">فيلا / دوبلكس سياحي</option>
-              </select>
-            </Field>
-
-            {/* Guests Filter */}
-            <Field label="عدد الضيوف / الأشخاص">
-              <select
-                className={inputCls}
-                value={minGuests}
-                onChange={(e) => setMinGuests(e.target.value)}
-              >
-                <option value="">أي عدد</option>
-                <option value="1">شخص أو شخصان</option>
-                <option value="3">3 إلى 4 أشخاص</option>
-                <option value="5">5 أشخاص فما فوق (عائلة كبيرة)</option>
-              </select>
-            </Field>
-          </div>
-
-          {/* Quick Filter Chips */}
-          <div className="mt-4 flex flex-wrap items-center gap-2 pt-2 border-t border-border">
-            <span className="text-xs font-semibold text-muted-foreground ml-1">
-              الميزات السريعة:
+        {/* Quick Nav to other Pillars */}
+        <div className="mb-4 flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-foreground">الأركان الثلاثة:</span>
+            <Link
+              to="/search"
+              search={{ section: "offers" }}
+              className="inline-flex items-center gap-1.5 rounded-lg border-2 border-emerald-600/40 bg-emerald-500/10 px-3 py-1 font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition"
+            >
+              <Building2 size={13} />
+              <span>1. ركن الكراء الدائم</span>
+            </Link>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border-2 border-amber-500 bg-amber-500 text-slate-950 px-3 py-1 font-black shadow-sm">
+              <Clock size={13} />
+              <span>2. ركن الكراء المؤقت (الحالي)</span>
             </span>
+            <Link
+              to="/sales"
+              className="inline-flex items-center gap-1.5 rounded-lg border-2 border-blue-600/40 bg-blue-600/10 px-3 py-1 font-bold text-blue-900 dark:text-blue-200 hover:bg-blue-600 hover:text-white transition"
+            >
+              <Tag size={13} />
+              <span>3. ركن البيع والشراء النهائي</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Pillar Section Switcher: قسم عروض الكراء المؤقت vs قسم طلبات الكراء المؤقت */}
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-3xl border-2 border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-card to-background p-4 sm:p-5 shadow-sm">
+          <div className="inline-flex rounded-xl bg-secondary/80 p-1 border border-amber-500/20">
+            <button
+              type="button"
+              onClick={() => setActiveSection("offers")}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs md:text-sm font-bold transition cursor-pointer ${
+                activeSection === "offers"
+                  ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Home size={16} />
+              <span>قسم عروض الكراء المؤقت</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  activeSection === "offers"
+                    ? "bg-slate-950/20 text-slate-950"
+                    : "bg-muted text-foreground"
+                }`}
+              >
+                {rentals.length}
+              </span>
+            </button>
 
             <button
               type="button"
-              onClick={() => setOnly24h(!only24h)}
-              className={`rounded-full px-3 py-1 text-xs font-bold transition flex items-center gap-1.5 ${
-                only24h
-                  ? "bg-gold text-deep shadow"
-                  : "bg-secondary text-muted-foreground hover:bg-muted"
+              onClick={() => setActiveSection("requests")}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs md:text-sm font-bold transition cursor-pointer ${
+                activeSection === "requests"
+                  ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Clock size={13} />
-              <span>متاح 24 ساعة فوري</span>
-            </button>
-
-            {["تكييف", "واي فاي", "موقف سيارات", "إطلالة", "مسبح"].map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => setSelectedAmenity(selectedAmenity === tag ? "" : tag)}
-                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                  selectedAmenity === tag
-                    ? "bg-primary text-primary-foreground shadow"
-                    : "bg-secondary text-muted-foreground hover:bg-muted"
+              <Clock size={16} />
+              <span>قسم طلبات الكراء المؤقت</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  activeSection === "requests"
+                    ? "bg-slate-950/20 text-slate-950"
+                    : "bg-muted text-foreground"
                 }`}
               >
-                {tag}
-              </button>
-            ))}
-
-            <div className="mr-auto flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">الترتيب:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium"
-              >
-                <option value="rating">الأعلى تقييماً ⭐</option>
-                <option value="price_asc">الأقل سعراً أولاً</option>
-                <option value="price_desc">الأعلى سعراً أولاً</option>
-              </select>
-            </div>
+                {tempRequests.length}
+              </span>
+            </button>
           </div>
-        </div>
-      </div>
 
-      {/* Rentals Grid */}
-      <section className="mx-auto max-w-6xl px-4 mt-8">
-        {filteredRentals.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-card">
-            <Home className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
-            <h3 className="text-lg font-bold">لم نجد شققاً مؤقتة تطابق معايير البحث</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              جرب تغيير خيارات الفلترة أو إعادة ضبط الولاية لتصفح الشقق المتاحة.
-            </p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <div className="flex items-center gap-2">
+            {activeSection === "offers" ? (
               <Link
                 to="/publish"
                 search={{ mode: "temporary" }}
-                className="inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-xs font-black text-deep shadow hover:brightness-105 transition"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-xs font-bold text-deep hover:brightness-105 transition shadow-sm"
               >
-                <Home size={15} />
-                <span>انشر شقتك للكراء المؤقت الآن</span>
+                <PlusCircle size={15} />
+                <span>انشر شقة للكراء المؤقت</span>
               </Link>
+            ) : (
               <button
-                onClick={() => {
-                  setWilaya("");
-                  setCommune("");
-                  setRentalType("");
-                  setMinGuests("");
-                  setOnly24h(false);
-                  setSelectedAmenity("");
-                }}
-                className="rounded-lg border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition"
+                type="button"
+                onClick={() => setShowNewRequestModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-xs font-bold text-deep hover:brightness-105 transition shadow-sm cursor-pointer"
               >
-                إعادة ضبط الفلاتر
+                <PlusCircle size={15} />
+                <span>+ انشر طلب كراء مؤقت جديد</span>
               </button>
+            )}
+          </div>
+        </div>
+
+        {activeSection === "offers" && (
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+              <div className="flex items-center gap-2 font-bold text-foreground">
+                <SlidersHorizontal size={18} className="text-gold" />
+                <span>تخصيص البحث عن شقة مؤقتة</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {filteredRentals.length} شقة متوفرة حاليًا
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <WilayaCommune
+                wilaya={wilaya}
+                setWilaya={setWilaya}
+                commune={commune}
+                setCommune={setCommune}
+                allOption={true}
+              />
+
+              {/* Rental Type Filter */}
+              <Field label="نوع العقار المؤقت">
+                <select
+                  className={inputCls}
+                  value={rentalType}
+                  onChange={(e) => setRentalType(e.target.value)}
+                >
+                  <option value="">كل الأنواع</option>
+                  <option value="شقة">شقة مفروشة</option>
+                  <option value="استوديو">استوديو مجهز</option>
+                  <option value="فيلا">فيلا / دوبلكس سياحي</option>
+                </select>
+              </Field>
+
+              {/* Guests Filter */}
+              <Field label="عدد الضيوف / الأشخاص">
+                <select
+                  className={inputCls}
+                  value={minGuests}
+                  onChange={(e) => setMinGuests(e.target.value)}
+                >
+                  <option value="">أي عدد</option>
+                  <option value="1">شخص أو شخصان</option>
+                  <option value="3">3 إلى 4 أشخاص</option>
+                  <option value="5">5 أشخاص فما فوق (عائلة كبيرة)</option>
+                </select>
+              </Field>
+            </div>
+
+            {/* Quick Filter Chips */}
+            <div className="mt-4 flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+              <span className="text-xs font-semibold text-muted-foreground ml-1">
+                الميزات السريعة:
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setOnly24h(!only24h)}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition flex items-center gap-1.5 ${
+                  only24h
+                    ? "bg-gold text-deep shadow"
+                    : "bg-secondary text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Clock size={13} />
+                <span>متاح 24 ساعة فوري</span>
+              </button>
+
+              {["تكييف", "واي فاي", "موقف سيارات", "إطلالة", "مسبح"].map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setSelectedAmenity(selectedAmenity === tag ? "" : tag)}
+                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                    selectedAmenity === tag
+                      ? "bg-primary text-primary-foreground shadow"
+                      : "bg-secondary text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+
+              <div className="mr-auto flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">الترتيب:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium"
+                >
+                  <option value="rating">الأعلى تقييماً ⭐</option>
+                  <option value="price_asc">الأقل سعراً أولاً</option>
+                  <option value="price_desc">الأعلى سعراً أولاً</option>
+                </select>
+              </div>
             </div>
           </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredRentals.map((rental) => (
-              <div
-                key={rental.id}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300"
-              >
-                {/* Image Cover */}
-                <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                  <img
-                    src={rental.image}
-                    alt={rental.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        )}
+      </div>
 
-                  {/* Top Badges */}
-                  <div className="absolute top-3 right-3 flex flex-wrap gap-1.5">
-                    <span className="rounded-md bg-gold px-2.5 py-0.5 text-xs font-black text-deep shadow">
-                      كراء مؤقت
-                    </span>
-                    {rental.is24hAvailable && (
-                      <span className="rounded-md bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white shadow flex items-center gap-1">
-                        <Clock size={11} />
-                        24 ساعة
+      {/* Rentals Grid */}
+      {activeSection === "offers" && (
+        <section className="mx-auto max-w-6xl px-4 mt-8">
+          {filteredRentals.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-card">
+              <Home className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
+              <h3 className="text-lg font-bold">لم نجد شققاً مؤقتة تطابق معايير البحث</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                جرب تغيير خيارات الفلترة أو إعادة ضبط الولاية لتصفح الشقق المتاحة.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  to="/publish"
+                  search={{ mode: "temporary" }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-xs font-black text-deep shadow hover:brightness-105 transition"
+                >
+                  <Home size={15} />
+                  <span>انشر شقتك للكراء المؤقت الآن</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    setWilaya("");
+                    setCommune("");
+                    setRentalType("");
+                    setMinGuests("");
+                    setOnly24h(false);
+                    setSelectedAmenity("");
+                  }}
+                  className="rounded-lg border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition"
+                >
+                  إعادة ضبط الفلاتر
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {filteredRentals.map((rental) => (
+                <div
+                  key={rental.id}
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-xl transition-all duration-300"
+                >
+                  {/* Image Cover */}
+                  <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                    <img
+                      src={rental.image}
+                      alt={rental.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                    {/* Top Badges */}
+                    <div className="absolute top-3 right-3 flex flex-wrap gap-1.5">
+                      <span className="rounded-md bg-gold px-2.5 py-0.5 text-xs font-black text-deep shadow">
+                        كراء مؤقت
                       </span>
-                    )}
-                  </div>
-
-                  {/* Rating Badge */}
-                  <div className="absolute top-3 left-3 rounded-md bg-black/60 backdrop-blur px-2 py-1 text-xs font-bold text-amber-300 flex items-center gap-1">
-                    <Star size={13} className="fill-amber-300 text-amber-300" />
-                    <span>{rental.rating}</span>
-                    <span className="text-[10px] text-white/70">({rental.reviewsCount})</span>
-                  </div>
-
-                  {/* Location in image bottom */}
-                  <div className="absolute bottom-2.5 right-3 left-3 flex items-center gap-1.5 text-xs text-white drop-shadow">
-                    <MapPin size={14} className="shrink-0 text-gold" />
-                    <span className="truncate font-semibold">
-                      {rental.commune}، {rental.wilaya}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="flex flex-1 flex-col p-4">
-                  <h3 className="font-bold text-foreground line-clamp-1 group-hover:text-primary transition">
-                    {rental.title}
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {rental.description}
-                  </p>
-
-                  {/* Property specs */}
-                  <div className="mt-3 grid grid-cols-3 gap-2 border-y border-border py-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <BedDouble size={14} className="text-primary" />
-                      <span>{rental.rooms} غرف</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users size={14} className="text-primary" />
-                      <span>حتى {rental.maxGuests} ضيوف</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Ruler size={14} className="text-primary" />
-                      <span>{rental.area} م²</span>
-                    </div>
-                  </div>
-
-                  {/* Amenities tags */}
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {rental.amenities.slice(0, 3).map((a, i) => (
-                      <span
-                        key={i}
-                        className="rounded bg-secondary/80 px-2 py-0.5 text-[11px] text-secondary-foreground"
-                      >
-                        {a}
-                      </span>
-                    ))}
-                    {rental.amenities.length > 3 && (
-                      <span className="rounded bg-secondary/80 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                        +{rental.amenities.length - 3}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Footer with Price & Actions */}
-                  <div className="mt-auto pt-4 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-muted-foreground">السعر بالليلة</div>
-                      <div className="text-base font-black text-primary">
-                        {formatDA(rental.nightlyPrice)}
-                        <span className="text-[11px] font-normal text-muted-foreground">
-                          {" "}
-                          / 24 سا
+                      {rental.is24hAvailable && (
+                        <span className="rounded-md bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white shadow flex items-center gap-1">
+                          <Clock size={11} />
+                          24 ساعة
                         </span>
+                      )}
+                    </div>
+
+                    {/* Rating Badge */}
+                    <div className="absolute top-3 left-3 rounded-md bg-black/60 backdrop-blur px-2 py-1 text-xs font-bold text-amber-300 flex items-center gap-1">
+                      <Star size={13} className="fill-amber-300 text-amber-300" />
+                      <span>{rental.rating}</span>
+                      <span className="text-[10px] text-white/70">({rental.reviewsCount})</span>
+                    </div>
+
+                    {/* Location in image bottom */}
+                    <div className="absolute bottom-2.5 right-3 left-3 flex items-center gap-1.5 text-xs text-white drop-shadow">
+                      <MapPin size={14} className="shrink-0 text-gold" />
+                      <span className="truncate font-semibold">
+                        {rental.commune}، {rental.wilaya}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex flex-1 flex-col p-4">
+                    <h3 className="font-bold text-foreground line-clamp-1 group-hover:text-primary transition">
+                      {maskPhoneNumbers(rental.title)}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {maskPhoneNumbers(rental.description)}
+                    </p>
+
+                    {/* Property specs */}
+                    <div className="mt-3 grid grid-cols-3 gap-2 border-y border-border py-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <BedDouble size={14} className="text-primary" />
+                        <span>{rental.rooms} غرف</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Users size={14} className="text-primary" />
+                        <span>حتى {rental.maxGuests} ضيوف</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Ruler size={14} className="text-primary" />
+                        <span>{rental.area} م²</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setDetailsRental(rental)}
-                        className="rounded-lg border border-border px-3 py-2 text-xs font-bold text-foreground hover:bg-secondary transition"
-                      >
-                        التفاصيل
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBookingRental(rental);
-                          setConfirmedBookingId(null);
-                        }}
-                        className="rounded-lg bg-gold px-3.5 py-2 text-xs font-black text-deep shadow hover:brightness-105 transition flex items-center gap-1"
-                      >
-                        <Calendar size={13} />
-                        <span>احجز الآن</span>
-                      </button>
+                    {/* Amenities tags */}
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {rental.amenities.slice(0, 3).map((a, i) => (
+                        <span
+                          key={i}
+                          className="rounded bg-secondary/80 px-2 py-0.5 text-[11px] text-secondary-foreground"
+                        >
+                          {a}
+                        </span>
+                      ))}
+                      {rental.amenities.length > 3 && (
+                        <span className="rounded bg-secondary/80 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                          +{rental.amenities.length - 3}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Footer with Price & Actions */}
+                    <div className="mt-auto pt-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-muted-foreground">السعر بالليلة</div>
+                        <div className="text-base font-black text-primary">
+                          {formatDA(rental.nightlyPrice)}
+                          <span className="text-[11px] font-normal text-muted-foreground">
+                            {" "}
+                            / 24 سا
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setDetailsRental(rental)}
+                          className="rounded-lg border border-border px-3 py-2 text-xs font-bold text-foreground hover:bg-secondary transition"
+                        >
+                          التفاصيل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBookingRental(rental);
+                            setConfirmedBookingId(null);
+                          }}
+                          className="rounded-lg bg-gold px-3.5 py-2 text-xs font-black text-deep shadow hover:brightness-105 transition flex items-center gap-1"
+                        >
+                          <Calendar size={13} />
+                          <span>احجز الآن</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Temporary Requests Section */}
+      {activeSection === "requests" && (
+        <div className="mx-auto max-w-6xl px-4 mt-8 space-y-6">
+          {/* Filter Card for Temporary Requests */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+              <div className="flex items-center gap-2 font-bold text-foreground">
+                <SlidersHorizontal size={18} className="text-gold" />
+                <span>تخصيص البحث في طلبات الكراء المؤقت</span>
               </div>
-            ))}
+              <div className="text-xs text-muted-foreground">
+                {filteredTempRequests.length} طلب كراء مؤقت مسجل
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <WilayaCommune
+                wilaya={wilaya}
+                setWilaya={setWilaya}
+                commune={commune}
+                setCommune={setCommune}
+                allOption={true}
+              />
+
+              <Field label="نوع العقار المؤقت المطلوب">
+                <select
+                  className={inputCls}
+                  value={rentalType}
+                  onChange={(e) => setRentalType(e.target.value)}
+                >
+                  <option value="">كل الأنواع</option>
+                  <option value="شقة">شقة مفروشة</option>
+                  <option value="استوديو">استوديو مجهز</option>
+                  <option value="فيلا">فيلا / دوبلكس سياحي</option>
+                </select>
+              </Field>
+            </div>
           </div>
-        )}
-      </section>
+
+          {/* Temporary Requests List */}
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <span>طلبات الكراء المؤقت واليومي النشطة</span>
+                  {rentalType && (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      ({rentalType})
+                    </span>
+                  )}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  مستأجرون وزوار يبحثون عن إقامة قصيرة ومؤقتة في ولايات الجزائر
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewRequestModal(true)}
+                className="text-xs font-bold text-primary hover:underline cursor-pointer"
+              >
+                + انشر طلبك الآن
+              </button>
+            </div>
+
+            {isLoadingRequests ? (
+              <p className="py-12 text-center text-muted-foreground">
+                جارٍ تحميل طلبات الكراء المؤقت...
+              </p>
+            ) : (
+              <>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredTempRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-gold">
+                            طلب كراء مؤقت • {req.type}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full font-medium">
+                            <Clock size={11} className="text-gold" />
+                            وقت النشر: {formatPublishTime(req.createdAt)}
+                          </span>
+                        </div>
+
+                        <h3 className="text-base font-bold text-foreground leading-snug">
+                          {req.title}
+                        </h3>
+
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin size={14} className="text-primary shrink-0" />
+                          <span>
+                            {req.commune}، ولاية {req.wilaya}
+                          </span>
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary/60 p-3 text-xs">
+                          <div>
+                            <span className="text-muted-foreground block text-[10px]">
+                              تاريخ الوصول:
+                            </span>
+                            <span className="font-semibold text-foreground">{req.checkInDate}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block text-[10px]">
+                              مدة الإقامة:
+                            </span>
+                            <span className="font-semibold text-foreground">
+                              {req.durationDays === 1
+                                ? "24 ساعة (ليلة)"
+                                : `${req.durationDays} أيام`}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block text-[10px]">
+                              عدد الضيوف:
+                            </span>
+                            <span className="font-semibold text-foreground">
+                              {req.guestsCount} أشخاص
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block text-[10px]">
+                              الميزانية لليلة:
+                            </span>
+                            <span className="font-bold text-primary">
+                              {formatDA(req.budgetPerNight)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {req.details && (
+                          <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                            {maskPhoneNumbers(req.details)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-border space-y-3">
+                        <HiddenPhone
+                          label="رقم هاتف صاحب الطلب"
+                          phone={req.contactPhone}
+                          listingId={req.id}
+                          listingType="request"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            toast.info(
+                              "يمكنك الاتصال بصاحب الطلب أو تقديم عرض شقتك له بعد موافقة المدير.",
+                            );
+                          }}
+                          className={`${btnPrimary} w-full text-xs py-2`}
+                        >
+                          اقترح شقتك وتواصل معه
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {!filteredTempRequests.length && (
+                  <div className="rounded-2xl border border-dashed border-border p-12 text-center">
+                    <Clock className="mx-auto h-10 w-10 text-muted-foreground mb-3 opacity-60" />
+                    <h3 className="font-bold text-base">
+                      لا توجد طلبات كراء مؤقت تطابق البحث حالياً
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                      هل تبحث عن شقة مفروشة أو استوديو لمدة 24 ساعة أو عدة أيام؟ انشر طلبك الآن
+                      مجاناً.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewRequestModal(true)}
+                      className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-xs font-bold text-deep shadow cursor-pointer"
+                    >
+                      <PlusCircle size={14} />
+                      <span>+ انشر طلب كراء مؤقت جديد</span>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Booking Modal */}
       {bookingRental && (
@@ -910,7 +1306,9 @@ export function TemporaryRentalsPage() {
 
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-black text-foreground">{detailsRental.title}</h3>
+                <h3 className="text-xl font-black text-foreground">
+                  {maskPhoneNumbers(detailsRental.title)}
+                </h3>
                 <p className="mt-1 text-xs text-muted-foreground">{detailsRental.address}</p>
               </div>
               <div className="text-left shrink-0">
@@ -922,7 +1320,7 @@ export function TemporaryRentalsPage() {
             </div>
 
             <div className="mt-4 text-xs leading-relaxed text-muted-foreground">
-              {detailsRental.description}
+              {maskPhoneNumbers(detailsRental.description)}
             </div>
 
             {/* Amenities Section */}
@@ -973,6 +1371,178 @@ export function TemporaryRentalsPage() {
                 حجز هذه الشقة الآن
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Temporary Request Modal */}
+      {showNewRequestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <button
+              onClick={() => setShowNewRequestModal(false)}
+              className="absolute top-4 left-4 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              <X size={20} />
+            </button>
+
+            <form onSubmit={handleCreateNewRequest} className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-border pb-3 mb-2">
+                <Clock className="text-gold" size={22} />
+                <div>
+                  <h3 className="font-bold text-foreground text-base">
+                    نشر طلب كراء مؤقت جديد (باليوم / 24 سا)
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    سيظهر طلبك مباشرة في قسم طلبات الكراء المؤقت ليطلع عليه الملاك ويقترحوا شققهم
+                  </p>
+                </div>
+              </div>
+
+              <Field label="عنوان الطلب">
+                <input
+                  type="text"
+                  required
+                  placeholder="مثال: عائلة تبحث عن شقة F3 مفروشة ومكيفة"
+                  value={newReqTitle}
+                  onChange={(e) => setNewReqTitle(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="نوع العقار المطلوب">
+                  <select
+                    value={newReqType}
+                    onChange={(e) =>
+                      setNewReqType(e.target.value as "شقة" | "استوديو" | "فيلا" | "دوبلكس")
+                    }
+                    className={inputCls}
+                  >
+                    <option value="شقة">شقة مفروشة</option>
+                    <option value="استوديو">استوديو مجهز</option>
+                    <option value="فيلا">فيلا سياحية</option>
+                    <option value="دوبلكس">دوبلكس</option>
+                  </select>
+                </Field>
+
+                <Field label="الميزانية لليلة (د.ج)">
+                  <input
+                    type="number"
+                    required
+                    min={2000}
+                    step={500}
+                    value={newReqBudget}
+                    onChange={(e) => setNewReqBudget(Number(e.target.value))}
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+
+              <WilayaCommune
+                wilaya={newReqWilaya}
+                setWilaya={setNewReqWilaya}
+                commune={newReqCommune}
+                setCommune={setNewReqCommune}
+                allOption={false}
+              />
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="تاريخ الوصول">
+                  <input
+                    type="date"
+                    required
+                    min={todayStr}
+                    value={newReqCheckIn}
+                    onChange={(e) => setNewReqCheckIn(e.target.value)}
+                    className={inputCls}
+                  />
+                </Field>
+
+                <Field label="مدة الإقامة (أيام)">
+                  <select
+                    value={newReqDuration}
+                    onChange={(e) => setNewReqDuration(Number(e.target.value))}
+                    className={inputCls}
+                  >
+                    <option value={1}>24 ساعة (ليلة)</option>
+                    <option value={2}>يومان (ليلتان)</option>
+                    <option value={3}>3 أيام</option>
+                    <option value={4}>4 أيام</option>
+                    <option value={5}>5 أيام</option>
+                    <option value={7}>أسبوع (7 أيام)</option>
+                    <option value={14}>أسبوعان (14 يوم)</option>
+                    <option value={30}>شهر (30 يوم)</option>
+                  </select>
+                </Field>
+
+                <Field label="عدد الضيوف">
+                  <select
+                    value={newReqGuests}
+                    onChange={(e) => setNewReqGuests(Number(e.target.value))}
+                    className={inputCls}
+                  >
+                    <option value={1}>شخص واحد</option>
+                    <option value={2}>شخصان</option>
+                    <option value={3}>3 أشخاص</option>
+                    <option value={4}>4 أشخاص</option>
+                    <option value={6}>عائلة (5+ أشخاص)</option>
+                  </select>
+                </Field>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="اسم صاحب الطلب">
+                  <input
+                    type="text"
+                    required
+                    placeholder="الاسم واللقب أو الاسم المستعار"
+                    value={newReqAuthor}
+                    onChange={(e) => setNewReqAuthor(e.target.value)}
+                    className={inputCls}
+                  />
+                </Field>
+
+                <Field label="رقم الهاتف (مشفر ومحمي)">
+                  <input
+                    type="tel"
+                    required
+                    dir="ltr"
+                    placeholder="05 / 06 / 07 XX XX XX"
+                    value={newReqPhone}
+                    onChange={(e) => setNewReqPhone(e.target.value)}
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+
+              <Field label="تفاصيل وشروط إضافية">
+                <textarea
+                  rows={3}
+                  placeholder="مثلاً: يفضل قرب الكورنيش، مصعد متوفر، مكيف هواء، موقف سيارات آمن..."
+                  value={newReqDetails}
+                  onChange={(e) => setNewReqDetails(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowNewRequestModal(false)}
+                  className="rounded-lg border border-border px-4 py-2 text-xs font-bold text-foreground hover:bg-secondary cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReq}
+                  className="rounded-lg bg-gold px-5 py-2 text-xs font-black text-deep shadow hover:brightness-105 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingReq ? "جارٍ النشر والمزامنة..." : "نشر الطلب الآن"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 {
   "name": "منزلي وأرضي | منصة الإيجار العقاري",
-  "description": "منصة جزائرية لإيجار العقارات ونشر طلبات البحث بأمان",
+  "description": "منصة جزائرية للكراء الدائم، الكراء المؤقت 24 سا، والبيع والشراء النهائي للعقارات بعقود موثقة",
   "icon": "/icon.png",
   "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

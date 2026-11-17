@@ -124,6 +124,8 @@ export interface FirestoreProperty {
   id: string;
   title: string;
   type: string;
+  purpose?: string;
+  legalStatus?: string;
   price: number;
   wilaya: string;
   commune: string;
@@ -140,14 +142,56 @@ export interface FirestoreProperty {
   updatedAt?: string;
 }
 
-export async function savePropertyToFirestore(data: Omit<FirestoreProperty, "id" | "createdAt">) {
-  const newRef = doc(collection(db, "properties"));
+export async function savePropertyToFirestore(
+  data: Partial<FirestoreProperty> & {
+    title: string;
+    type: string;
+    wilaya: string;
+    commune: string;
+    price: number;
+    phone: string;
+  },
+): Promise<FirestoreProperty> {
+  const newRef = data.id ? doc(db, "properties", data.id) : doc(collection(db, "properties"));
+  const now = new Date().toISOString();
+  // SECURITY: Public property document NEVER stores the plain phone number
   const newProperty: FirestoreProperty = {
-    ...data,
     id: newRef.id,
-    createdAt: new Date().toISOString(),
+    title: data.title,
+    type: data.type,
+    purpose: data.purpose || "كراء",
+    legalStatus: data.legalStatus || "",
+    price: data.price,
+    wilaya: data.wilaya,
+    commune: data.commune,
+    area: data.area ?? 0,
+    rooms: data.rooms ?? 0,
+    description: data.description ?? "",
+    images: data.images,
+    phone: "", // Redacted from public document
+    userId: data.userId || "user",
+    userName: data.userName || "صاحب العقار",
+    userEmail: data.userEmail || "",
+    status: data.status || "approved",
+    createdAt: data.createdAt || now,
+    updatedAt: now,
   };
   await setDoc(newRef, newProperty);
+
+  // Store contact phone in isolated private collection protected by strict Firestore rules
+  if (data.phone) {
+    try {
+      await setDoc(doc(db, "properties_private", newRef.id), {
+        id: newRef.id,
+        phone: data.phone,
+        userId: data.userId || "user",
+        createdAt: now,
+      });
+    } catch (privErr) {
+      console.warn("Could not write private phone record:", privErr);
+    }
+  }
+
   return newProperty;
 }
 
@@ -160,18 +204,130 @@ export async function approvePropertyInFirestore(id: string) {
 }
 
 export async function deletePropertyFromFirestore(id: string) {
-  const pRef = doc(db, "properties", id);
-  await deleteDoc(pRef);
+  try {
+    const pRef = doc(db, "properties", id);
+    await deleteDoc(pRef);
+  } catch (err) {
+    console.warn("Could not delete property from Firestore:", err);
+  }
 }
 
-export async function getPropertiesFromFirestore(max = 50): Promise<FirestoreProperty[]> {
+export async function getPropertiesFromFirestore(max = 100): Promise<FirestoreProperty[]> {
   try {
-    const q = query(collection(db, "properties"), orderBy("createdAt", "desc"), limit(max));
+    const q = query(collection(db, "properties"), limit(max));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => d.data() as FirestoreProperty);
+    const list = snap.docs.map((d) => {
+      const item = d.data() as FirestoreProperty;
+      return {
+        ...item,
+        phone: "", // Redact from public read
+      };
+    });
+    list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return list;
   } catch (err) {
     console.warn("Could not fetch properties from Firestore:", err);
     return [];
+  }
+}
+
+/**
+ * Rental Requests Firestore Operations
+ */
+export type FirestoreRentalRequest = {
+  id: string;
+  title: string;
+  type: string;
+  purpose?: string;
+  wilaya: string;
+  commune: string;
+  budget: number;
+  rooms: number;
+  duration?: string;
+  details: string;
+  author: string;
+  contactPhone: string;
+  date: string;
+  createdAt: string;
+  status: "approved" | "pending";
+};
+
+export async function saveRentalRequestToFirestore(
+  data: Partial<FirestoreRentalRequest> & {
+    title: string;
+    type: string;
+    wilaya: string;
+    commune: string;
+    budget: number;
+    contactPhone: string;
+  },
+): Promise<FirestoreRentalRequest> {
+  const newRef = data.id
+    ? doc(db, "rental_requests", data.id)
+    : doc(collection(db, "rental_requests"));
+  const now = new Date().toISOString();
+  // SECURITY: Public request document NEVER exposes the plain phone number
+  const newRequest: FirestoreRentalRequest = {
+    id: newRef.id,
+    title: data.title,
+    type: data.type,
+    purpose: data.purpose || "كراء",
+    wilaya: data.wilaya,
+    commune: data.commune,
+    budget: data.budget,
+    rooms: data.rooms ?? 0,
+    duration: data.duration ?? "سنة",
+    details: data.details ?? "",
+    author: data.author || "صاحب الطلب",
+    contactPhone: "", // Redacted from public document
+    date: data.date || now.slice(0, 10),
+    createdAt: data.createdAt || now,
+    status: data.status || "approved",
+  };
+  await setDoc(newRef, newRequest);
+
+  // Store contact phone in isolated private collection
+  if (data.contactPhone) {
+    try {
+      await setDoc(doc(db, "rental_requests_private", newRef.id), {
+        id: newRef.id,
+        contactPhone: data.contactPhone,
+        userId: data.author || "user",
+        createdAt: now,
+      });
+    } catch (privErr) {
+      console.warn("Could not write private rental request phone record:", privErr);
+    }
+  }
+
+  return newRequest;
+}
+
+export async function getRentalRequestsFromFirestore(max = 100): Promise<FirestoreRentalRequest[]> {
+  try {
+    const q = query(collection(db, "rental_requests"), limit(max));
+    const snap = await getDocs(q);
+    const list = snap.docs.map((d) => {
+      const item = d.data() as FirestoreRentalRequest;
+      return {
+        ...item,
+        contactPhone: "", // Enforce redaction
+      };
+    });
+    list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return list;
+  } catch (err) {
+    console.warn("Could not fetch rental requests from Firestore:", err);
+    return [];
+  }
+}
+
+export async function deleteRentalRequestFromFirestore(id: string) {
+  try {
+    const rRef = doc(db, "rental_requests", id);
+    await deleteDoc(rRef);
+  } catch (err) {
+    console.warn("Could not delete rental request from Firestore:", err);
   }
 }
 
@@ -305,6 +461,83 @@ export async function deleteUserFromFirestore(userId: string) {
     await deleteDoc(uRef);
   } catch (err) {
     console.warn("Could not delete user from Firestore:", err);
+  }
+}
+
+/**
+ * Temporary Rental Requests Firestore Operations
+ */
+export type FirestoreTemporaryRequest = {
+  id: string;
+  title: string;
+  type: string;
+  wilaya: string;
+  commune: string;
+  checkInDate: string;
+  durationDays: number;
+  guestsCount: number;
+  budgetPerNight: number;
+  author: string;
+  contactPhone: string;
+  details: string;
+  createdAt: string;
+  status: string;
+};
+
+export async function saveTemporaryRequestToFirestore(
+  data: Partial<FirestoreTemporaryRequest> & {
+    title: string;
+    wilaya: string;
+    commune: string;
+    budgetPerNight: number;
+    contactPhone: string;
+  },
+): Promise<FirestoreTemporaryRequest> {
+  const newRef = data.id
+    ? doc(db, "temporary_requests", data.id)
+    : doc(collection(db, "temporary_requests"));
+  const now = new Date().toISOString();
+  const item: FirestoreTemporaryRequest = {
+    id: newRef.id,
+    title: data.title,
+    type: data.type || "شقة",
+    wilaya: data.wilaya,
+    commune: data.commune,
+    checkInDate: data.checkInDate || now.slice(0, 10),
+    durationDays: data.durationDays || 1,
+    guestsCount: data.guestsCount || 2,
+    budgetPerNight: data.budgetPerNight,
+    author: data.author || "زائر مسجل",
+    contactPhone: data.contactPhone,
+    details: data.details || "",
+    createdAt: data.createdAt || now,
+    status: data.status || "منشور",
+  };
+  await setDoc(newRef, item);
+  return item;
+}
+
+export async function getTemporaryRequestsFromFirestore(
+  max = 100,
+): Promise<FirestoreTemporaryRequest[]> {
+  try {
+    const q = query(collection(db, "temporary_requests"), limit(max));
+    const snap = await getDocs(q);
+    const list = snap.docs.map((d) => d.data() as FirestoreTemporaryRequest);
+    list.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return list;
+  } catch (err) {
+    console.warn("Could not fetch temporary requests from Firestore:", err);
+    return [];
+  }
+}
+
+export async function deleteTemporaryRequestFromFirestore(id: string) {
+  try {
+    const rRef = doc(db, "temporary_requests", id);
+    await deleteDoc(rRef);
+  } catch (err) {
+    console.warn("Could not delete temporary request from Firestore:", err);
   }
 }
 

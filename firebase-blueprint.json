@@ -92,16 +92,67 @@
         "checkOutDate",
         "grandTotal"
       ]
+    },
+    "rental_request": {
+      "title": "RentalRequest",
+      "description": "Property rental search requests submitted by seekers in Algeria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "wilaya": { "type": "string" },
+        "commune": { "type": "string" },
+        "budget": { "type": "number" },
+        "rooms": { "type": "number" },
+        "details": { "type": "string" },
+        "author": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "title", "type", "wilaya", "budget", "contactPhone"]
+    },
+    "temporary_request": {
+      "title": "TemporaryRequest",
+      "description": "Short-term temporary rental requests by visitors or families in Algeria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "wilaya": { "type": "string" },
+        "commune": { "type": "string" },
+        "checkInDate": { "type": "string" },
+        "durationDays": { "type": "number" },
+        "guestsCount": { "type": "number" },
+        "budgetPerNight": { "type": "number" },
+        "author": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "title", "wilaya", "budgetPerNight", "contactPhone"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "user",
-      "description": "User document containing profile and role"
+      "description": "User profile with role-based access control"
     },
     "/properties/{propertyId}": {
       "schema": "property",
       "description": "Property listings submitted by users or admins"
+    },
+    "/rental_requests/{requestId}": {
+      "schema": "rental_request",
+      "description": "Property search requests submitted by users"
+    },
+    "/temporary_requests/{requestId}": {
+      "schema": "temporary_request",
+      "description": "Short-term temporary rental requests by visitors"
     },
     "/inquiries/{inquiryId}": {
       "schema": "inquiry",

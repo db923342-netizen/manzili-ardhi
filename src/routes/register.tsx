@@ -81,9 +81,9 @@ function Register() {
       >
         <div className="flex flex-col items-center justify-center pb-2">
           <img
-            src="/assets/icon-circle.png"
+            src="/icon.png"
             alt="شعار منزلي وأرضي"
-            className="h-16 w-16 rounded-full border-2 border-gold/40 shadow object-cover"
+            className="h-16 w-16 rounded-2xl border-2 border-emerald-500/40 shadow object-cover"
           />
           <h1 className="mt-3 text-2xl font-bold">إنشاء حساب جديد</h1>
           <p className="text-xs text-muted-foreground">

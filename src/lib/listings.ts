@@ -2,7 +2,15 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import hero from "@/assets/hero.jpg";
-import type { Property, RentalRequest, TemporaryRental } from "@/lib/data";
+import {
+  formatPublishTime,
+  type Property,
+  type RentalRequest,
+  type TemporaryRental,
+  type TemporaryRentalRequest,
+  defaultTemporaryRequests,
+} from "@/lib/data";
+import { maskPhoneNumbers } from "@/lib/utils";
 
 type Row = {
   id?: unknown;
@@ -64,45 +72,48 @@ function toProperty(row: Row): Property {
   const ownerName = String(
     row.profiles?.full_name ?? (row.owner && row.owner !== "مخفي" ? row.owner : "صاحب العقار"),
   );
+  const createdAt = String(row.created_at || new Date().toISOString());
 
   return {
     id: idStr,
-    title: `${type} للإيجار`,
+    title: maskPhoneNumbers(`${type} للإيجار`),
     type,
     wilaya: String(row.wilaya ?? ""),
     commune: String(row.municipality ?? ""),
     price: Number(row.monthly_rent ?? 0),
     rooms: Number(row.rooms ?? 0),
     area: Number(row.area_m2 ?? 0),
-    description: String(row.description ?? ""),
+    description: maskPhoneNumbers(String(row.description ?? "")),
     owner: ownerName,
-    ownerPhone,
+    ownerPhone: "", // SECURITY: Never leak raw phone to public clients
     status: statusLabel(row.status),
     image: hero,
+    publishedAt: formatPublishTime(createdAt),
+    createdAt,
   };
 }
 
 function toRequest(row: Row): RentalRequest {
   const type = label(row.property_type);
   const idStr = String(row.id ?? "1");
-  const rawPhone = String(row.contact_phone ?? row.phone ?? "").trim();
-  const contactPhone = rawPhone || getDeterministicPhone(idStr, "0661");
   const authorName = String(
     row.profiles?.full_name ?? (row.author && row.author !== "مخفي" ? row.author : "صاحب الطلب"),
   );
+  const createdAt = String(row.created_at || new Date().toISOString());
 
   return {
     id: idStr,
-    title: `مطلوب ${type}`,
+    title: maskPhoneNumbers(`مطلوب ${type}`),
     type,
     wilaya: String(row.wilaya ?? ""),
     commune: String(row.municipality ?? ""),
     budget: Number(row.budget ?? 0),
     rooms: Number(row.rooms ?? 0),
-    details: String(row.specifications ?? ""),
+    details: maskPhoneNumbers(String(row.specifications ?? "")),
     author: authorName,
-    contactPhone,
-    date: String(row.created_at ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10),
+    contactPhone: "", // SECURITY: Never leak raw phone to public clients
+    date: createdAt.slice(0, 10),
+    createdAt,
   };
 }
 
@@ -113,28 +124,74 @@ function toPropertyFromFirestore(p: {
   wilaya: string;
   commune: string;
   price: number;
-  rooms: number;
-  area: number;
-  description: string;
+  purpose?: string;
+  legalStatus?: string;
+  rooms?: number;
+  area?: number;
+  description?: string;
   userName?: string;
-  phone: string;
-  status: string;
+  phone?: string;
+  status?: string;
   images?: string;
+  createdAt?: string;
 }): Property {
+  const createdAt = p.createdAt || new Date().toISOString();
   return {
     id: p.id,
-    title: p.title,
+    title: maskPhoneNumbers(p.title),
     type: p.type,
+    purpose: (p.purpose as "كراء" | "بيع") || "كراء",
+    legalStatus: p.legalStatus || "",
     wilaya: p.wilaya,
     commune: p.commune,
     price: p.price,
-    rooms: p.rooms,
-    area: p.area,
-    description: p.description,
+    rooms: Number(p.rooms ?? 0),
+    area: Number(p.area ?? 0),
+    description: maskPhoneNumbers(p.description || ""),
     owner: p.userName || "صاحب العقار",
-    ownerPhone: p.phone,
-    status: p.status === "approved" ? "نشط" : p.status === "pending" ? "قيد المراجعة" : "مؤجر",
+    ownerPhone: "", // SECURITY: Redacted from public query
+    status:
+      p.status === "approved" || !p.status
+        ? "نشط"
+        : p.status === "pending"
+          ? "قيد المراجعة"
+          : "مؤجر",
     image: p.images || hero,
+    publishedAt: formatPublishTime(createdAt),
+    createdAt,
+  };
+}
+
+function toRequestFromFirestore(r: {
+  id: string;
+  title: string;
+  type: string;
+  purpose?: string;
+  wilaya: string;
+  commune: string;
+  budget: number;
+  rooms?: number;
+  details?: string;
+  author?: string;
+  contactPhone?: string;
+  date?: string;
+  createdAt?: string;
+}): RentalRequest {
+  const createdAt = r.createdAt || new Date().toISOString();
+  return {
+    id: r.id,
+    title: maskPhoneNumbers(r.title),
+    type: r.type,
+    purpose: (r.purpose as "كراء" | "شراء") || "كراء",
+    wilaya: r.wilaya,
+    commune: r.commune,
+    budget: r.budget,
+    rooms: Number(r.rooms ?? 0),
+    details: maskPhoneNumbers(r.details || ""),
+    author: r.author || "صاحب الطلب",
+    contactPhone: "", // SECURITY: Redacted from public query
+    date: r.date || createdAt.slice(0, 10),
+    createdAt,
   };
 }
 
@@ -204,10 +261,12 @@ export const defaultProperties: Property[] = [
     description:
       "شقة راقية مؤثثة بالكامل بحيدرة، قريبة من السفارات والخدمات مع تدفئة وتكييف مركزي وموقف سيارات.",
     owner: "أحمد بن علي",
-    ownerPhone: "0550 41 82 93",
+    ownerPhone: "",
     status: "نشط",
     image:
       "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "اليوم (06:30)",
+    createdAt: "2026-11-05T06:30:00.000Z",
   },
   {
     id: "prop-2",
@@ -221,10 +280,12 @@ export const defaultProperties: Property[] = [
     description:
       "فيلا ممتازة في موقع هادئ بحي النرجس بئر الجير، حديقة مشجرة، تدفئة مركزية، أمن 24/7.",
     owner: "كريم منصوري",
-    ownerPhone: "0770 19 38 47",
+    ownerPhone: "",
     status: "نشط",
     image:
       "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "أمس (18:15)",
+    createdAt: "2026-11-04T18:15:00.000Z",
   },
   {
     id: "prop-3",
@@ -238,10 +299,12 @@ export const defaultProperties: Property[] = [
     description:
       "استوديو نظيف ومجهز بكل الضروريات، قريب من محطة الترامواي والمطار وجامعة باب الزوار USTHB.",
     owner: "سمير قادري",
-    ownerPhone: "0661 74 29 11",
+    ownerPhone: "",
     status: "نشط",
     image:
       "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "أمس (11:45)",
+    createdAt: "2026-11-04T11:45:00.000Z",
   },
   {
     id: "prop-4",
@@ -254,10 +317,12 @@ export const defaultProperties: Property[] = [
     area: 65,
     description: "محل تجاري في موقع حيوي ونشط تجارياً بوسط مدينة قسنطينة، صالح لعدة نشاطات وخدمات.",
     owner: "ياسين بن عودة",
-    ownerPhone: "0658 91 02 43",
+    ownerPhone: "",
     status: "قيد المراجعة",
     image:
       "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "منذ يومين",
+    createdAt: "2026-11-03T15:00:00.000Z",
   },
   {
     id: "prop-5",
@@ -271,10 +336,12 @@ export const defaultProperties: Property[] = [
     description:
       "أرض فلاحية ممتازة مهيأة لغراسة الأشجار المثمرة أو البيوت البلاستيكية، مزودة ببئر ماء ومحول كهربائي.",
     owner: "فاطمة الزهراء بلقاسم",
-    ownerPhone: "0560 33 22 11",
+    ownerPhone: "",
     status: "نشط",
     image:
       "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "منذ 3 أيام",
+    createdAt: "2026-11-02T10:00:00.000Z",
   },
 ];
 
@@ -290,8 +357,9 @@ export const defaultRentalRequests: RentalRequest[] = [
     details:
       "عائلة تبحث عن شقة نظيفة ومحترمة مع مصعد وخزان ماء، مدة الإيجار سنة قابلة للتجديد بعقد موثق.",
     author: "مراد عثماني",
-    contactPhone: "0554 99 88 77",
-    date: new Date().toISOString().slice(0, 10),
+    contactPhone: "",
+    date: "2026-11-05",
+    createdAt: "2026-11-05T07:15:00.000Z",
   },
   {
     id: "req-2",
@@ -303,8 +371,9 @@ export const defaultRentalRequests: RentalRequest[] = [
     rooms: 1,
     details: "إطار في شركة خاصة يبحث عن سكن مفروش ومريح لمدة 6 أشهر قابلة للتمديد.",
     author: "بلال سعيدي",
-    contactPhone: "0662 33 44 55",
-    date: new Date().toISOString().slice(0, 10),
+    contactPhone: "",
+    date: "2026-11-04",
+    createdAt: "2026-11-04T16:20:00.000Z",
   },
   {
     id: "req-3",
@@ -316,8 +385,168 @@ export const defaultRentalRequests: RentalRequest[] = [
     rooms: 0,
     details: "مساحة 500م² فما فوق لتخزين مواد البناء، سهلة الولوج للشاحنات ومحاطة بسياج.",
     author: "طارق حداد",
-    contactPhone: "0770 12 34 56",
-    date: new Date().toISOString().slice(0, 10),
+    contactPhone: "",
+    date: "2026-11-03",
+    createdAt: "2026-11-03T12:00:00.000Z",
+  },
+];
+
+export const defaultSaleProperties: Property[] = [
+  {
+    id: "sale-1",
+    title: "شقة F4 للبيع بعقد ملكية ودفتر عقاري - سعيد حمدين",
+    type: "شقة",
+    purpose: "بيع",
+    legalStatus: "عقد توثيقي + دفتر عقاري",
+    wilaya: "الجزائر",
+    commune: "بئر مراد رايس",
+    price: 28500000,
+    rooms: 4,
+    area: 125,
+    description:
+      "شقة فاخرة F4 في الطابق الثالث مع مصعد، حي هادئ ومحروس، تدفئة مركزية وموقف سيارات مغطى. جميع الوثائق الإدارية جاهزة للبيع الفوري.",
+    owner: "الحاج بلقاسم",
+    ownerPhone: "",
+    status: "نشط",
+    image:
+      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "اليوم (08:15)",
+    createdAt: "2026-11-06T08:15:00.000Z",
+  },
+  {
+    id: "sale-2",
+    title: "قطعة أرض صالحة للبناء مساحة 350 م² - تيبازة (بوسماعيل)",
+    type: "أرض",
+    purpose: "بيع",
+    legalStatus: "عقد مشهر + دفتر عقاري فردي",
+    wilaya: "تيبازة",
+    commune: "بوسماعيل",
+    price: 15500000,
+    rooms: 0,
+    area: 350,
+    description:
+      "قطعة أرض مستوية ذات واجهتين، متصلة بقنوات الصرف الصحي والغاز والماء والكهرباء، قريبة من الطريق السريع والشاطئ.",
+    owner: "عبد الرحمن شريفي",
+    ownerPhone: "",
+    status: "نشط",
+    image:
+      "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "أمس (14:30)",
+    createdAt: "2026-11-05T14:30:00.000Z",
+  },
+  {
+    id: "sale-3",
+    title: "فيلا عصرية R+2 مع مسبح وحديقة - وهران (العقيد لطفي)",
+    type: "فيلا",
+    purpose: "بيع",
+    legalStatus: "عقد موثق + رخصة بناء ومطابقة",
+    wilaya: "وهران",
+    commune: "وهران",
+    price: 68000000,
+    rooms: 7,
+    area: 380,
+    description:
+      "فيلا راقية جداً بتشطيبات ديلوكس، 7 غرف، صالونين كبيرين، مسبح خاص بنظام تصفية حديث، كاميرات مراقبة وتدفئة أرضية.",
+    owner: "فاروق بن عيسى",
+    ownerPhone: "",
+    status: "نشط",
+    image:
+      "https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "منذ يومين",
+    createdAt: "2026-11-04T10:00:00.000Z",
+  },
+  {
+    id: "sale-4",
+    title: "محل تجاري ذو طابقين 110 م² - وسط مدينة سطيف",
+    type: "محل تجاري",
+    purpose: "بيع",
+    legalStatus: "عقد ملكية نهائي + سجل تجاري",
+    wilaya: "سطيف",
+    commune: "سطيف",
+    price: 24000000,
+    rooms: 2,
+    area: 110,
+    description:
+      "محل تجاري ذو واجهة زجاجية عريضة في شارع رئيسي نشط، صالح لمختلف الأنشطة التجارية أو عيادة طبية أو مقر شركة.",
+    owner: "طارق بوعزيز",
+    ownerPhone: "",
+    status: "نشط",
+    image:
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "منذ 3 أيام",
+    createdAt: "2026-11-03T11:00:00.000Z",
+  },
+  {
+    id: "sale-5",
+    title: "منزل تقليدي واسع قابل للتجديد أو الاستثمار - قسنطينة (سيدي مبروك)",
+    type: "منزل",
+    purpose: "بيع",
+    legalStatus: "عقد ملكية + فريضة موثقة",
+    wilaya: "قسنطينة",
+    commune: "قسنطينة",
+    price: 19500000,
+    rooms: 5,
+    area: 210,
+    description:
+      "منزل أرضي مع فناء مشجر ومرآب لسيارتين، حي عائلي هادئ قريب من الترام والمساجد والمدارس.",
+    owner: "حكيم لعرج",
+    ownerPhone: "",
+    status: "نشط",
+    image:
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
+    publishedAt: "منذ 4 أيام",
+    createdAt: "2026-11-02T13:00:00.000Z",
+  },
+];
+
+export const defaultSaleRequests: RentalRequest[] = [
+  {
+    id: "sreq-1",
+    title: "مطلوب شراء شقة F3 أو F4 في العاصمة بدفتر عقاري",
+    type: "شقة",
+    purpose: "شراء",
+    wilaya: "الجزائر",
+    commune: "درارية",
+    budget: 22000000,
+    rooms: 4,
+    details:
+      "مشتري جاد يبحث عن شقة F3 أو F4 بنواحي درارية، بئر مراد رايس، أو الشراقة. الدفع فوري كاش والوثائق القانونية شرط أساسي.",
+    author: "الدكتور كمال ر.",
+    contactPhone: "",
+    date: "2026-11-06",
+    createdAt: "2026-11-06T06:00:00.000Z",
+  },
+  {
+    id: "sreq-2",
+    title: "مطلوب قطعة أرض للبناء مساحة 200 إلى 400 م² - البليدة",
+    type: "أرض",
+    purpose: "شراء",
+    wilaya: "البليدة",
+    commune: "أولاد يعيش",
+    budget: 12000000,
+    rooms: 0,
+    details:
+      "أبحث عن قطعة أرض في موقع عمراني جيد للبناء الفردي، مع ضرورة توفر عقد ملكية رسمي غير مشاع.",
+    author: "أمين مسعودي",
+    contactPhone: "",
+    date: "2026-11-05",
+    createdAt: "2026-11-05T12:00:00.000Z",
+  },
+  {
+    id: "sreq-3",
+    title: "مطلوب محل تجاري للشراء في شارع حيوي - وهران",
+    type: "محل تجاري",
+    purpose: "شراء",
+    wilaya: "وهران",
+    commune: "وهران",
+    budget: 18000000,
+    rooms: 1,
+    details:
+      "مطلوب محل تجاري بمساحة تفوق 40م² لافتتاح صيدلية أو نشاط طبي، يفضل واجهة على شارع رئيسي.",
+    author: "صابرين ب.",
+    contactPhone: "",
+    date: "2026-11-04",
+    createdAt: "2026-11-04T15:30:00.000Z",
   },
 ];
 
@@ -328,9 +557,21 @@ export const propertiesQuery = queryOptions({
   queryKey: ["public_properties"],
   queryFn: async (): Promise<Property[]> => {
     const deleted = getDeletedPropertyIds();
-    let remoteProps: Property[] = [];
 
-    // 1. Fetch real properties from Supabase
+    // 1. Fetch real properties from Firestore (Multi-user cross-device shared database)
+    let firestoreProps: Property[] = [];
+    try {
+      const { getPropertiesFromFirestore } = await import("./firebase");
+      const fbProps = await getPropertiesFromFirestore();
+      if (fbProps && fbProps.length > 0) {
+        firestoreProps = fbProps.map(toPropertyFromFirestore);
+      }
+    } catch (err) {
+      console.warn("Could not fetch properties from Firestore:", err);
+    }
+
+    // 2. Fetch real properties from Supabase
+    let remoteProps: Property[] = [];
     try {
       const { data, error } = await supabase
         .from("properties")
@@ -344,7 +585,7 @@ export const propertiesQuery = queryOptions({
       // Supabase error tolerated
     }
 
-    // 2. Fetch locally published properties by users
+    // 3. Fetch locally published properties by users
     let localProps: Property[] = [];
     if (typeof window !== "undefined") {
       try {
@@ -355,30 +596,23 @@ export const propertiesQuery = queryOptions({
       }
     }
 
-    // 3. Fallback to Firestore if needed
-    let firestoreProps: Property[] = [];
-    if (remoteProps.length === 0 && localProps.length === 0) {
-      try {
-        const { getPropertiesFromFirestore } = await import("./firebase");
-        const fbProps = await getPropertiesFromFirestore();
-        if (fbProps && fbProps.length > 0) {
-          firestoreProps = fbProps.map(toPropertyFromFirestore);
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    // Combine: local + remote + firestore + defaults (avoid duplicate IDs & deleted items)
+    // Combine: firestore first (shared real-time) + local + remote + defaults (excluding sales)
     const combined: Property[] = [];
     const seen = new Set<string>();
 
-    for (const p of [...localProps, ...remoteProps, ...firestoreProps, ...defaultProperties]) {
-      if (!seen.has(p.id) && !deleted.has(p.id)) {
+    for (const p of [...firestoreProps, ...localProps, ...remoteProps, ...defaultProperties]) {
+      if (!seen.has(p.id) && !deleted.has(p.id) && p.purpose !== "بيع") {
         seen.add(p.id);
         combined.push(p);
       }
     }
+
+    // Sort by createdAt descending so newest published properties appear first for everyone
+    combined.sort((a, b) => {
+      const dateA = a.createdAt || "";
+      const dateB = b.createdAt || "";
+      return dateB.localeCompare(dateA);
+    });
 
     return combined;
   },
@@ -388,8 +622,21 @@ export const requestsQuery = queryOptions({
   queryKey: ["public_rental_requests"],
   queryFn: async (): Promise<RentalRequest[]> => {
     const deleted = getDeletedRequestIds();
-    let remoteReqs: RentalRequest[] = [];
 
+    // 1. Fetch real rental requests from Firestore (Multi-user cross-device shared database)
+    let firestoreReqs: RentalRequest[] = [];
+    try {
+      const { getRentalRequestsFromFirestore } = await import("./firebase");
+      const fbReqs = await getRentalRequestsFromFirestore();
+      if (fbReqs && fbReqs.length > 0) {
+        firestoreReqs = fbReqs.map(toRequestFromFirestore);
+      }
+    } catch (err) {
+      console.warn("Could not fetch rental requests from Firestore:", err);
+    }
+
+    // 2. Fetch real requests from Supabase
+    let remoteReqs: RentalRequest[] = [];
     try {
       const { data, error } = await supabase
         .from("rental_requests")
@@ -403,6 +650,7 @@ export const requestsQuery = queryOptions({
       // Supabase error tolerated
     }
 
+    // 3. Fetch locally published requests by users
     let localReqs: RentalRequest[] = [];
     if (typeof window !== "undefined") {
       try {
@@ -416,16 +664,308 @@ export const requestsQuery = queryOptions({
     const combined: RentalRequest[] = [];
     const seen = new Set<string>();
 
-    for (const r of [...localReqs, ...remoteReqs, ...defaultRentalRequests]) {
-      if (!seen.has(r.id) && !deleted.has(r.id)) {
+    for (const r of [...firestoreReqs, ...localReqs, ...remoteReqs, ...defaultRentalRequests]) {
+      if (!seen.has(r.id) && !deleted.has(r.id) && r.purpose !== "شراء") {
         seen.add(r.id);
         combined.push(r);
+      }
+    }
+
+    // Sort by createdAt / date descending so newest requests appear first for everyone
+    combined.sort((a, b) => {
+      const dateA = a.createdAt || a.date || "";
+      const dateB = b.createdAt || b.date || "";
+      return dateB.localeCompare(dateA);
+    });
+
+    return combined;
+  },
+});
+
+export let lastSalePropertiesError: string | null = null;
+export let lastPurchaseRequestsError: string | null = null;
+
+export const salesPropertiesQuery = queryOptions({
+  queryKey: ["public_sales_properties"],
+  queryFn: async (): Promise<Property[]> => {
+    lastSalePropertiesError = null;
+    const deleted = getDeletedPropertyIds();
+
+    let authUserId: string | null = null;
+    let isAdmin = false;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        authUserId = authData.user.id;
+        isAdmin =
+          authData.user.email === "db923342@gmail.com" ||
+          authData.user.user_metadata?.role === "admin";
+      }
+    } catch {
+      // ignore
+    }
+
+    // 1. Fetch directly from Supabase table "sale_properties" (Primary Data Source)
+    const remoteList: Property[] = [];
+    try {
+      const { data, error } = await supabase
+        .from("sale_properties")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        lastSalePropertiesError = error.message;
+        console.warn("Supabase sale_properties query error:", error.message);
+      } else if (data) {
+        data.forEach((row) => {
+          remoteList.push({
+            id: row.id,
+            title: row.title || `عقار للبيع في ${row.wilaya}`,
+            type: row.property_type || "شقة",
+            purpose: "بيع" as const,
+            legalStatus: row.legal_status || "",
+            wilaya: row.wilaya,
+            commune: row.municipality || "",
+            price: Number(row.price || 0),
+            rooms: Number(row.rooms || 0),
+            area: Number(row.area_m2 || 0),
+            description: row.description || "",
+            owner: row.owner_id ? `مالك العقار (${row.owner_id.slice(0, 6)})` : "صاحب العقار",
+            ownerPhone: "", // REDACTED - Phone privacy
+            status: row.status === "approved" || row.status === "نشط" ? "نشط" : "قيد المراجعة",
+            image: row.image || hero,
+            publishedAt: formatPublishTime(row.created_at || new Date().toISOString()),
+            createdAt: row.created_at || new Date().toISOString(),
+            owner_id: row.owner_id || undefined,
+          });
+        });
+      }
+    } catch (err) {
+      lastSalePropertiesError = err instanceof Error ? err.message : String(err);
+      console.warn("sale_properties exception:", err);
+    }
+
+    const combined: Property[] = [];
+    const seen = new Set<string>();
+
+    for (const p of [...remoteList, ...defaultSaleProperties]) {
+      if (!seen.has(p.id) && !deleted.has(p.id)) {
+        if (p.status === "نشط" || (authUserId && p.owner_id === authUserId) || isAdmin) {
+          seen.add(p.id);
+          combined.push(p);
+        }
       }
     }
 
     return combined;
   },
 });
+
+export const salesRequestsQuery = queryOptions({
+  queryKey: ["public_sales_requests"],
+  queryFn: async (): Promise<RentalRequest[]> => {
+    lastPurchaseRequestsError = null;
+    const deleted = getDeletedRequestIds();
+
+    let authUserId: string | null = null;
+    let isAdmin = false;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        authUserId = authData.user.id;
+        isAdmin =
+          authData.user.email === "db923342@gmail.com" ||
+          authData.user.user_metadata?.role === "admin";
+      }
+    } catch {
+      // ignore
+    }
+
+    // 1. Fetch directly from Supabase table "purchase_requests" (Primary Data Source)
+    const remoteList: RentalRequest[] = [];
+    try {
+      const { data, error } = await supabase
+        .from("purchase_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        lastPurchaseRequestsError = error.message;
+        console.warn("Supabase purchase_requests query error:", error.message);
+      } else if (data) {
+        data.forEach((row) => {
+          remoteList.push({
+            id: row.id,
+            title: row.title || `مطلوب شراء في ${row.wilaya}`,
+            type: row.property_type || "شقة",
+            purpose: "شراء" as const,
+            wilaya: row.wilaya,
+            commune: row.municipality || "",
+            budget: Number(row.budget || 0),
+            rooms: Number(row.rooms || 0),
+            details: row.specifications || "",
+            author: row.buyer_id ? `مشتري مسجل (${row.buyer_id.slice(0, 6)})` : "صاحب الطلب",
+            contactPhone: "", // REDACTED - Phone privacy
+            date: (row.created_at || new Date().toISOString()).slice(0, 10),
+            createdAt: row.created_at || new Date().toISOString(),
+            status: row.status === "approved" || row.status === "نشط" ? "نشط" : "قيد المراجعة",
+            buyer_id: row.buyer_id || undefined,
+          });
+        });
+      }
+    } catch (err) {
+      lastPurchaseRequestsError = err instanceof Error ? err.message : String(err);
+      console.warn("purchase_requests exception:", err);
+    }
+
+    const combined: RentalRequest[] = [];
+    const seen = new Set<string>();
+
+    for (const r of [...remoteList, ...defaultSaleRequests]) {
+      if (!seen.has(r.id) && !deleted.has(r.id)) {
+        if (
+          !r.status ||
+          r.status === "نشط" ||
+          (authUserId && (r as { buyer_id?: string }).buyer_id === authUserId) ||
+          isAdmin
+        ) {
+          seen.add(r.id);
+          combined.push(r);
+        }
+      }
+    }
+
+    return combined;
+  },
+});
+
+export type SaleDeal = {
+  id: string;
+  created_at: string;
+  sale_property_id: string | null;
+  purchase_request_id: string | null;
+  seller_id: string | null;
+  buyer_id: string | null;
+  sale_price: number;
+  platform_fee: number;
+  contacts_released: boolean;
+  status: string;
+};
+
+export const saleDealsQuery = queryOptions({
+  queryKey: ["admin_sale_deals"],
+  queryFn: async (): Promise<SaleDeal[]> => {
+    try {
+      const { data, error } = await supabase
+        .from("sale_deals")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.warn("Supabase sale_deals query error:", error.message);
+        return [];
+      }
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+});
+
+export async function executeCreateSaleDeal(input: {
+  sale_property_id?: string | null;
+  purchase_request_id?: string | null;
+  seller_id?: string | null;
+  buyer_id?: string | null;
+  sale_price: number;
+  platform_fee: number;
+  status?: string;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const isAdmin =
+      authData?.user?.email === "db923342@gmail.com" ||
+      authData?.user?.user_metadata?.role === "admin";
+
+    if (!isAdmin) {
+      return { success: false, error: "إنشاء صفقات البيع والشراء متاح للمدير فقط." };
+    }
+
+    const { data, error } = await supabase
+      .from("sale_deals")
+      .insert({
+        sale_property_id: input.sale_property_id || null,
+        purchase_request_id: input.purchase_request_id || null,
+        seller_id: input.seller_id || null,
+        buyer_id: input.buyer_id || null,
+        sale_price: input.sale_price,
+        platform_fee: input.platform_fee,
+        contacts_released: false,
+        status: input.status || "بانتظار الموافقة",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true, id: data.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function executeUpdateSaleDeal(
+  dealId: string,
+  updates: {
+    status?: string;
+    contacts_released?: boolean;
+    platform_fee?: number;
+  },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const isAdmin =
+      authData?.user?.email === "db923342@gmail.com" ||
+      authData?.user?.user_metadata?.role === "admin";
+
+    if (!isAdmin) {
+      return { success: false, error: "تعديل صفقات البيع متاح للمدير فقط." };
+    }
+
+    const { error } = await supabase.from("sale_deals").update(updates).eq("id", dealId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function executeDeleteSaleDeal(
+  dealId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const isAdmin =
+      authData?.user?.email === "db923342@gmail.com" ||
+      authData?.user?.user_metadata?.role === "admin";
+
+    if (!isAdmin) {
+      return { success: false, error: "حذف صفقات البيع متاح للمدير فقط." };
+    }
+
+    const { error } = await supabase.from("sale_deals").delete().eq("id", dealId);
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
 
 export const adminPropertiesQuery = queryOptions({
   queryKey: ["admin_properties"],
@@ -459,7 +999,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-admin",
     n: "المدير العام (إدارة المنصة)",
     e: "db923342@gmail.com",
-    phone: "0550 00 11 22",
+    phone: "",
     role: "مدير",
     s: "نشط",
     wilaya: "الجزائر",
@@ -471,7 +1011,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-1",
     n: "أحمد بن علي",
     e: "ahmed.benali@gmail.com",
-    phone: "0550 41 82 93",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "الجزائر",
@@ -483,7 +1023,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-2",
     n: "سمير قادري",
     e: "samir.kadri@gmail.com",
-    phone: "0661 74 29 11",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "الجزائر",
@@ -495,7 +1035,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-3",
     n: "كريم منصوري",
     e: "karim.mansouri@yahoo.fr",
-    phone: "0770 19 38 47",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "وهران",
@@ -507,7 +1047,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-4",
     n: "فاطمة الزهراء بلقاسم",
     e: "f.belkacem@gmail.com",
-    phone: "0560 33 22 11",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "قسنطينة",
@@ -519,7 +1059,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-5",
     n: "عبد الرزاق عماري",
     e: "a.ammari@gmail.com",
-    phone: "0671 88 44 20",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "سطيف",
@@ -531,7 +1071,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-6",
     n: "ياسمين شريف",
     e: "yasmine.cherif@gmail.com",
-    phone: "0552 14 36 98",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "البليدة",
@@ -543,7 +1083,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-7",
     n: "مصطفى زروقي",
     e: "m.zerrouki@outlook.com",
-    phone: "0792 65 11 30",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "تلمسان",
@@ -555,7 +1095,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-8",
     n: "حمزة بوزيد",
     e: "hamza.bouzid@gmail.com",
-    phone: "0664 90 12 75",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "عنابة",
@@ -567,7 +1107,7 @@ export const defaultAdminUsers: AdminUser[] = [
     id: "u-9",
     n: "صوفيا لعربي",
     e: "sofia.larbi@yahoo.com",
-    phone: "0559 21 80 44",
+    phone: "",
     role: "مستخدم",
     s: "نشط",
     wilaya: "وهران",
@@ -698,9 +1238,9 @@ export const defaultDealsWithPhones = [
     id: "deal-101",
     p: "شقة F3 بحيدرة، الجزائر العاصمة",
     a: "أحمد بن علي",
-    ownerPhone: "0550 41 82 93",
+    ownerPhone: "",
     b: "سمير قادري",
-    renterPhone: "0661 74 29 11",
+    renterPhone: "",
     paid: false,
     s: "بانتظار الموافقة",
   },
@@ -708,9 +1248,9 @@ export const defaultDealsWithPhones = [
     id: "deal-102",
     p: "فيلا حي النرجس، بئر الجير، وهران",
     a: "كريم منصوري",
-    ownerPhone: "0770 19 38 47",
+    ownerPhone: "",
     b: "ياسين بن عودة",
-    renterPhone: "0658 91 02 43",
+    renterPhone: "",
     paid: true,
     s: "مكتملة ومكشوفة الأرقام",
   },
@@ -722,6 +1262,19 @@ export const defaultDealsWithPhones = [
 export async function executeDeleteProperty(p: Property, queryClient: QueryClient): Promise<void> {
   // 1. Mark permanently deleted in local persistent storage
   markPropertyDeleted(p.id);
+
+  if (p.purpose === "بيع") {
+    try {
+      await supabase.from("sale_properties").delete().eq("id", p.id);
+    } catch {
+      // Supabase error tolerated
+    }
+    queryClient.setQueryData<Property[]>(salesPropertiesQuery.queryKey, (old = []) =>
+      old.filter((item) => item.id !== p.id),
+    );
+    queryClient.invalidateQueries({ queryKey: salesPropertiesQuery.queryKey });
+    return;
+  }
 
   // 2. Synchronize deletion with Firestore in background
   try {
@@ -754,7 +1307,28 @@ export async function executeDeleteRequest(
   // 1. Mark permanently deleted in local persistent storage
   markRequestDeleted(r.id);
 
-  // 2. Attempt Supabase delete safely
+  if (r.purpose === "شراء") {
+    try {
+      await supabase.from("purchase_requests").delete().eq("id", r.id);
+    } catch {
+      // Supabase error tolerated
+    }
+    queryClient.setQueryData<RentalRequest[]>(salesRequestsQuery.queryKey, (old = []) =>
+      old.filter((item) => item.id !== r.id),
+    );
+    queryClient.invalidateQueries({ queryKey: salesRequestsQuery.queryKey });
+    return;
+  }
+
+  // 2. Synchronize deletion with Firestore in background
+  try {
+    const { deleteRentalRequestFromFirestore } = await import("./firebase");
+    await deleteRentalRequestFromFirestore(r.id);
+  } catch (fbErr) {
+    console.warn("Firestore delete request error:", fbErr);
+  }
+
+  // 3. Attempt Supabase delete safely
   try {
     await supabase.from("rental_requests").delete().eq("id", r.id);
   } catch {
@@ -859,7 +1433,7 @@ function toTemporaryRentalFromSupabase(row: SupabaseShortTermRentalRow): Tempora
 
   return {
     id: idStr,
-    title,
+    title: maskPhoneNumbers(title),
     type: normalizedType,
     wilaya: String(prop?.wilaya || "الجزائر"),
     commune: String(prop?.municipality || ""),
@@ -876,7 +1450,9 @@ function toTemporaryRentalFromSupabase(row: SupabaseShortTermRentalRow): Tempora
     reviewsCount: 1,
     is24hAvailable: true,
     amenities: ["مفروشة بالكامل", "تكييف", "واي فاي سريع", "مطبخ مجهز", "موقف سيارات"],
-    description: rawDesc || "شقة مجهزة بكل الضروريات للكراء المؤقت اليومي، نظيفة وعصرية.",
+    description: maskPhoneNumbers(
+      rawDesc || "شقة مجهزة بكل الضروريات للكراء المؤقت اليومي، نظيفة وعصرية.",
+    ),
     rules: [
       "مخصصة للعائلات أو المسافرين المهنيين",
       "الدفتر العائلي إلزامي للأزواج الجزائريين",
@@ -1050,6 +1626,9 @@ export async function executeCreateTemporaryRental(
   let createdShortTermRentalId: string | null = null;
   let insertError: string | null = null;
 
+  const cleanTitle = maskPhoneNumbers(input.title);
+  const cleanDescription = maskPhoneNumbers(input.description);
+
   // 3. Insert into public.properties
   try {
     const { data: propData, error: propErr } = await supabase
@@ -1062,7 +1641,7 @@ export async function executeCreateTemporaryRental(
         monthly_rent: input.nightlyPrice,
         duration_months: 0, // 0 signifies daily/short-term temporary rental
         area_m2: input.area,
-        description: `${input.title}\n\n${input.description}`,
+        description: `${cleanTitle}\n\n${cleanDescription}`,
         status: "approved",
       })
       .select("id")
@@ -1109,7 +1688,7 @@ export async function executeCreateTemporaryRental(
   const finalId = createdShortTermRentalId || createdPropertyId || `temp-local-${Date.now()}`;
   const newRental: TemporaryRental = {
     id: finalId,
-    title: input.title,
+    title: cleanTitle,
     type: (input.propertyType as "شقة" | "استوديو" | "فيلا" | "دوبلكس") || "شقة",
     wilaya: input.wilaya,
     commune: input.commune,
@@ -1127,7 +1706,7 @@ export async function executeCreateTemporaryRental(
     is24hAvailable: input.minStayDays <= 1,
     amenities:
       input.amenities.length > 0 ? input.amenities : ["مفروشة بالكامل", "تكييف", "واي فاي"],
-    description: input.description,
+    description: cleanDescription,
     rules: [
       "مخصصة للعائلات أو المسافرين المهنيين",
       "الدفتر العائلي إلزامي للأزواج الجزائريين",
@@ -1233,6 +1812,8 @@ export async function executeDeleteTemporaryRental(
 export type NewPropertyInput = {
   title: string;
   propertyType: string;
+  purpose?: "كراء" | "بيع";
+  legalStatus?: string;
   wilaya: string;
   commune: string;
   price: number;
@@ -1247,9 +1828,15 @@ export async function executeCreateProperty(
   queryClient?: QueryClient,
 ): Promise<{ success: boolean; id: string; error?: string }> {
   let authUserId: string | null = null;
+  let authUserName = "صاحب العقار";
+  let authUserEmail = "";
   try {
     const { data: authData } = await supabase.auth.getUser();
-    if (authData?.user) authUserId = authData.user.id;
+    if (authData?.user) {
+      authUserId = authData.user.id;
+      authUserEmail = authData.user.email || "";
+      authUserName = (authData.user.user_metadata?.full_name as string) || "مستخدم مسجل";
+    }
   } catch {
     // optional auth
   }
@@ -1266,10 +1853,89 @@ export async function executeCreateProperty(
   };
   const dbPropertyType = typeMapping[input.propertyType] || "apartment";
 
+  const nowIso = new Date().toISOString();
   let createdId: string | null = null;
   let insertError: string | null = null;
 
-  // 1. Insert into Supabase properties table
+  const cleanTitle = maskPhoneNumbers(input.title);
+  const cleanDescription = maskPhoneNumbers(input.description);
+
+  // 0. Requirements 2, 6, 11: Wire sale properties directly to Supabase table "sale_properties"
+  if (input.purpose === "بيع") {
+    if (!authUserId) {
+      return {
+        success: false,
+        id: "",
+        error: "يجب تسجيل الدخول أولاً لنشر إعلان بيع مربوط بحسابك (auth.uid).",
+      };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("sale_properties")
+        .insert({
+          owner_id: authUserId,
+          title: cleanTitle,
+          property_type: dbPropertyType,
+          legal_status: input.legalStatus || "",
+          wilaya: input.wilaya,
+          municipality: input.commune,
+          price: input.price,
+          area_m2: input.area,
+          rooms: input.rooms,
+          description: cleanDescription,
+          status: "approved",
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        console.warn("Supabase sale_properties insert error:", error.message);
+        return { success: false, id: "", error: error.message };
+      }
+
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: salesPropertiesQuery.queryKey });
+      }
+      return { success: true, id: data.id };
+    } catch (err) {
+      return {
+        success: false,
+        id: "",
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  // 1. Save directly to Firestore (multi-user shared database across devices)
+  try {
+    const { savePropertyToFirestore } = await import("./firebase");
+    const fbSaved = await savePropertyToFirestore({
+      title: cleanTitle,
+      type: input.propertyType,
+      purpose: input.purpose || "كراء",
+      legalStatus: input.legalStatus || "",
+      wilaya: input.wilaya,
+      commune: input.commune,
+      price: input.price,
+      area: input.area,
+      rooms: input.rooms,
+      description: cleanDescription,
+      phone: input.phone,
+      userId: authUserId || "user",
+      userName: authUserName,
+      userEmail: authUserEmail,
+      status: "approved",
+      createdAt: nowIso,
+    });
+    if (fbSaved?.id) {
+      createdId = fbSaved.id;
+    }
+  } catch (fbErr) {
+    console.warn("Firestore property save warning:", fbErr);
+  }
+
+  // 2. Insert into Supabase properties table
   try {
     const { data, error } = await supabase
       .from("properties")
@@ -1281,7 +1947,7 @@ export async function executeCreateProperty(
         monthly_rent: input.price,
         duration_months: 12,
         area_m2: input.area,
-        description: `${input.title}\n\n${input.description}`,
+        description: `${cleanTitle}\n\n${cleanDescription}`,
         status: "approved", // نشر مباشر وتلقائي بدون مراجعة
       })
       .select("id")
@@ -1290,32 +1956,36 @@ export async function executeCreateProperty(
     if (error) {
       console.warn("Supabase property insert error:", error);
       insertError = error.message;
-    } else if (data) {
+    } else if (data && !createdId) {
       createdId = data.id;
     }
   } catch (err) {
     insertError = err instanceof Error ? err.message : String(err);
   }
 
-  // 2. Prepare full Property object
-  const finalId = createdId || `prop-local-${Date.now()}`;
+  // 3. Prepare full Property object with real publication time
+  const finalId = createdId || `prop-${Date.now()}`;
   const newProp: Property = {
     id: finalId,
-    title: input.title,
+    title: cleanTitle,
     type: input.propertyType,
+    purpose: input.purpose || "كراء",
+    legalStatus: input.legalStatus || "",
     wilaya: input.wilaya,
     commune: input.commune,
     price: input.price,
     rooms: input.rooms,
     area: input.area,
-    description: input.description,
-    owner: authUserId ? "مستخدم مسجل" : "صاحب العقار",
-    ownerPhone: input.phone,
+    description: cleanDescription,
+    owner: authUserName,
+    ownerPhone: "",
     status: "نشط",
     image: hero,
+    publishedAt: formatPublishTime(nowIso),
+    createdAt: nowIso,
   };
 
-  // 3. Save to local storage for instant multi-user view
+  // 4. Save to local storage for instant fallback
   if (typeof window !== "undefined") {
     try {
       const raw = localStorage.getItem("manzili_local_properties");
@@ -1327,31 +1997,42 @@ export async function executeCreateProperty(
     }
   }
 
-  // 4. Update React Query Cache immediately
+  // 5. Update and invalidate React Query Cache immediately for real-time appearance
   if (queryClient) {
-    queryClient.setQueryData<Property[]>(propertiesQuery.queryKey, (old = []) => [
-      newProp,
-      ...old.filter((p) => p.id !== newProp.id),
-    ]);
+    if (newProp.purpose === "بيع") {
+      queryClient.setQueryData<Property[]>(salesPropertiesQuery.queryKey, (old = []) => [
+        newProp,
+        ...old.filter((p) => p.id !== newProp.id),
+      ]);
+      queryClient.invalidateQueries({ queryKey: salesPropertiesQuery.queryKey });
+    } else {
+      queryClient.setQueryData<Property[]>(propertiesQuery.queryKey, (old = []) => [
+        newProp,
+        ...old.filter((p) => p.id !== newProp.id),
+      ]);
+      queryClient.invalidateQueries({ queryKey: propertiesQuery.queryKey });
+    }
     queryClient.setQueryData<Property[]>(adminPropertiesQuery.queryKey, (old = []) => [
       newProp,
       ...old.filter((p) => p.id !== newProp.id),
     ]);
+    queryClient.invalidateQueries({ queryKey: adminPropertiesQuery.queryKey });
   }
 
   return {
-    success: !insertError || Boolean(createdId),
+    success: Boolean(createdId) || !insertError,
     id: finalId,
     error: insertError || undefined,
   };
 }
 
 // ==========================================
-// Rental Request Creation (Real Supabase + Local Sync)
+// Rental Request Creation (Real Firestore + Supabase + Local Sync)
 // ==========================================
 export type NewRequestInput = {
   title: string;
   propertyType: string;
+  purpose?: "كراء" | "شراء";
   wilaya: string;
   commune: string;
   budget: number;
@@ -1366,9 +2047,13 @@ export async function executeCreateRequest(
   queryClient?: QueryClient,
 ): Promise<{ success: boolean; id: string; error?: string }> {
   let authUserId: string | null = null;
+  let authUserName = "صاحب الطلب";
   try {
     const { data: authData } = await supabase.auth.getUser();
-    if (authData?.user) authUserId = authData.user.id;
+    if (authData?.user) {
+      authUserId = authData.user.id;
+      authUserName = (authData.user.user_metadata?.full_name as string) || "مستخدم مسجل";
+    }
   } catch {
     // optional auth
   }
@@ -1385,9 +2070,86 @@ export async function executeCreateRequest(
   };
   const dbPropertyType = typeMapping[input.propertyType] || "apartment";
 
+  const nowIso = new Date().toISOString();
   let createdId: string | null = null;
   let insertError: string | null = null;
 
+  const cleanTitle = maskPhoneNumbers(input.title);
+  const cleanDetails = maskPhoneNumbers(input.details);
+
+  // 0. Requirements 3, 6, 11: Wire purchase requests directly to Supabase table "purchase_requests"
+  if (input.purpose === "شراء") {
+    if (!authUserId) {
+      return {
+        success: false,
+        id: "",
+        error: "يجب تسجيل الدخول أولاً لنشر طلب شراء مربوط بحسابك (auth.uid).",
+      };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("purchase_requests")
+        .insert({
+          buyer_id: authUserId,
+          title: cleanTitle,
+          property_type: dbPropertyType,
+          wilaya: input.wilaya,
+          municipality: input.commune,
+          budget: input.budget,
+          rooms: input.rooms,
+          specifications: cleanDetails,
+          status: "approved",
+          contact_phone: input.phone,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        console.warn("Supabase purchase_requests insert error:", error.message);
+        return { success: false, id: "", error: error.message };
+      }
+
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: salesRequestsQuery.queryKey });
+      }
+      return { success: true, id: data.id };
+    } catch (err) {
+      return {
+        success: false,
+        id: "",
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  // 1. Save directly to Firestore (multi-user shared database across devices)
+  try {
+    const { saveRentalRequestToFirestore } = await import("./firebase");
+    const fbSaved = await saveRentalRequestToFirestore({
+      title: cleanTitle,
+      type: input.propertyType,
+      purpose: input.purpose || "كراء",
+      wilaya: input.wilaya,
+      commune: input.commune,
+      budget: input.budget,
+      rooms: input.rooms,
+      duration: input.duration,
+      details: cleanDetails,
+      author: authUserName,
+      contactPhone: input.phone,
+      date: nowIso.slice(0, 10),
+      createdAt: nowIso,
+      status: "approved",
+    });
+    if (fbSaved?.id) {
+      createdId = fbSaved.id;
+    }
+  } catch (fbErr) {
+    console.warn("Firestore rental request save warning:", fbErr);
+  }
+
+  // 2. Insert into Supabase rental_requests table
   try {
     const { data, error } = await supabase
       .from("rental_requests")
@@ -1399,7 +2161,7 @@ export async function executeCreateRequest(
         budget: input.budget,
         duration_months: input.duration.includes("12") ? 12 : 6,
         contact_phone: input.phone,
-        specifications: `${input.title}\n\n${input.details}`,
+        specifications: `${cleanTitle}\n\n${cleanDetails}`,
         status: "approved",
       })
       .select("id")
@@ -1408,26 +2170,28 @@ export async function executeCreateRequest(
     if (error) {
       console.warn("Supabase rental request insert error:", error);
       insertError = error.message;
-    } else if (data) {
+    } else if (data && !createdId) {
       createdId = data.id;
     }
   } catch (err) {
     insertError = err instanceof Error ? err.message : String(err);
   }
 
-  const finalId = createdId || `req-local-${Date.now()}`;
+  const finalId = createdId || `req-${Date.now()}`;
   const newReq: RentalRequest = {
     id: finalId,
-    title: input.title,
+    title: cleanTitle,
     type: input.propertyType,
+    purpose: input.purpose || "كراء",
     wilaya: input.wilaya,
     commune: input.commune,
     budget: input.budget,
     rooms: input.rooms,
-    details: input.details,
-    author: authUserId ? "مستخدم مسجل" : "صاحب الطلب",
-    contactPhone: input.phone,
-    date: new Date().toISOString().slice(0, 10),
+    details: cleanDetails,
+    author: authUserName,
+    contactPhone: "",
+    date: nowIso.slice(0, 10),
+    createdAt: nowIso,
   };
 
   if (typeof window !== "undefined") {
@@ -1442,19 +2206,163 @@ export async function executeCreateRequest(
   }
 
   if (queryClient) {
-    queryClient.setQueryData<RentalRequest[]>(requestsQuery.queryKey, (old = []) => [
-      newReq,
-      ...old.filter((r) => r.id !== newReq.id),
-    ]);
+    if (newReq.purpose === "شراء") {
+      queryClient.setQueryData<RentalRequest[]>(salesRequestsQuery.queryKey, (old = []) => [
+        newReq,
+        ...old.filter((r) => r.id !== newReq.id),
+      ]);
+      queryClient.invalidateQueries({ queryKey: salesRequestsQuery.queryKey });
+    } else {
+      queryClient.setQueryData<RentalRequest[]>(requestsQuery.queryKey, (old = []) => [
+        newReq,
+        ...old.filter((r) => r.id !== newReq.id),
+      ]);
+      queryClient.invalidateQueries({ queryKey: requestsQuery.queryKey });
+    }
     queryClient.setQueryData<RentalRequest[]>(adminRequestsQuery.queryKey, (old = []) => [
       newReq,
       ...old.filter((r) => r.id !== newReq.id),
     ]);
+    queryClient.invalidateQueries({ queryKey: adminRequestsQuery.queryKey });
   }
 
   return {
-    success: !insertError || Boolean(createdId),
+    success: Boolean(createdId) || !insertError,
     id: finalId,
     error: insertError || undefined,
   };
+}
+
+export const temporaryRequestsQuery = queryOptions({
+  queryKey: ["temporary_requests"],
+  queryFn: async (): Promise<TemporaryRentalRequest[]> => {
+    let firestoreReqs: TemporaryRentalRequest[] = [];
+    try {
+      const { getTemporaryRequestsFromFirestore } = await import("./firebase");
+      const list = await getTemporaryRequestsFromFirestore();
+      if (list && list.length > 0) {
+        firestoreReqs = list.map((item) => ({
+          id: item.id,
+          title: maskPhoneNumbers(item.title),
+          type: (item.type as "شقة" | "استوديو" | "فيلا" | "دوبلكس") || "شقة",
+          wilaya: item.wilaya,
+          commune: item.commune,
+          checkInDate: item.checkInDate,
+          durationDays: item.durationDays,
+          guestsCount: item.guestsCount,
+          budgetPerNight: item.budgetPerNight,
+          author: item.author,
+          contactPhone: item.contactPhone,
+          details: maskPhoneNumbers(item.details || ""),
+          createdAt: item.createdAt,
+          status: (item.status as "منشور" | "تم التلبية" | "ملغى") || "منشور",
+        }));
+      }
+    } catch (err) {
+      console.warn("Could not fetch temporary requests from Firestore:", err);
+    }
+
+    let localReqs: TemporaryRentalRequest[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("manzili_local_temporary_requests");
+        if (raw) localReqs = JSON.parse(raw);
+      } catch {
+        // ignore
+      }
+    }
+
+    const combined: TemporaryRentalRequest[] = [];
+    const seen = new Set<string>();
+    for (const r of [...firestoreReqs, ...localReqs, ...defaultTemporaryRequests]) {
+      if (!seen.has(r.id)) {
+        seen.add(r.id);
+        combined.push(r);
+      }
+    }
+
+    combined.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    return combined;
+  },
+});
+
+export async function executeCreateTemporaryRequest(
+  data: Omit<TemporaryRentalRequest, "id" | "createdAt" | "status">,
+  queryClient?: QueryClient,
+): Promise<TemporaryRentalRequest> {
+  const newId = `treq-${Date.now()}`;
+  const nowIso = new Date().toISOString();
+  const created: TemporaryRentalRequest = {
+    ...data,
+    title: maskPhoneNumbers(data.title),
+    details: maskPhoneNumbers(data.details || ""),
+    id: newId,
+    createdAt: nowIso,
+    status: "منشور",
+  };
+
+  // 1. Save locally
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_temporary_requests");
+      const current: TemporaryRentalRequest[] = raw ? JSON.parse(raw) : [];
+      localStorage.setItem(
+        "manzili_local_temporary_requests",
+        JSON.stringify([created, ...current]),
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Save to Firestore
+  try {
+    const { saveTemporaryRequestToFirestore } = await import("./firebase");
+    await saveTemporaryRequestToFirestore(created);
+  } catch (err) {
+    console.warn("Could not save temporary request to Firestore:", err);
+  }
+
+  // 3. Invalidate TanStack query
+  if (queryClient) {
+    queryClient.setQueryData<TemporaryRentalRequest[]>(
+      temporaryRequestsQuery.queryKey,
+      (old = []) => [created, ...old.filter((x) => x.id !== newId)],
+    );
+    await queryClient.invalidateQueries({ queryKey: temporaryRequestsQuery.queryKey });
+  }
+
+  return created;
+}
+
+export async function executeDeleteTemporaryRequest(id: string, queryClient?: QueryClient) {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_temporary_requests");
+      if (raw) {
+        const current: TemporaryRentalRequest[] = JSON.parse(raw);
+        localStorage.setItem(
+          "manzili_local_temporary_requests",
+          JSON.stringify(current.filter((x) => x.id !== id)),
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const { deleteTemporaryRequestFromFirestore } = await import("./firebase");
+    await deleteTemporaryRequestFromFirestore(id);
+  } catch (err) {
+    console.warn("Could not delete temporary request from Firestore:", err);
+  }
+
+  if (queryClient) {
+    queryClient.setQueryData<TemporaryRentalRequest[]>(
+      temporaryRequestsQuery.queryKey,
+      (old = []) => old.filter((x) => x.id !== id),
+    );
+    await queryClient.invalidateQueries({ queryKey: temporaryRequestsQuery.queryKey });
+  }
 }

@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Clock,
   Building2,
+  Tag,
   Sparkles,
   Lock,
   CheckCircle2,
@@ -28,12 +29,13 @@ export const Route = createFileRoute("/_authenticated/publish")({
   }),
   head: () => ({
     meta: [
-      { title: "انشر عقارك للإيجار أو كراء مؤقت | منزلي وأرضي" },
+      { title: "انشر عقارك للإيجار أو البيع | منزلي وأرضي" },
       {
         name: "description",
-        content: "انشر عقارك للإيجار الشهري أو الكراء المؤقت باليوم في جميع ولايات الجزائر.",
+        content:
+          "انشر عقارك للإيجار الشهري، الكراء المؤقت، أو البيع النهائي في جميع ولايات الجزائر.",
       },
-      { property: "og:title", content: "انشر عقارك للإيجار أو كراء شقق مؤقتة" },
+      { property: "og:title", content: "انشر عقارك في أركان منزلي وأرضي" },
       { property: "og:description", content: "النشر مجاني ورقم هاتفك محمي على منزلي وأرضي." },
     ],
   }),
@@ -43,14 +45,17 @@ export const Route = createFileRoute("/_authenticated/publish")({
 function Publish() {
   const queryClient = useQueryClient();
   const searchParams = Route.useSearch();
-  const initialMode =
+  const initialMode: "standard" | "temporary" | "sale" =
     searchParams.mode === "temporary" || searchParams.type === "temporary"
       ? "temporary"
-      : "standard";
-  const [rentalMode, setRentalMode] = useState<"standard" | "temporary">(initialMode);
+      : searchParams.mode === "sale" || searchParams.type === "sale"
+        ? "sale"
+        : "standard";
+  const [rentalMode, setRentalMode] = useState<"standard" | "temporary" | "sale">(initialMode);
   const [title, setTitle] = useState("");
   const [propertyType, setPropertyType] = useState("شقة");
   const [price, setPrice] = useState("");
+  const [legalStatus, setLegalStatus] = useState("عقد توثيقي + دفتر عقاري");
   const [w, setW] = useState("");
   const [c, setC] = useState("");
   const [phone, setPhone] = useState("");
@@ -112,6 +117,27 @@ function Publish() {
         );
         setSubmitted(true);
       }
+    } else if (rentalMode === "sale") {
+      const res = await executeCreateProperty(
+        {
+          title: title.trim() || `${propertyType} للبيع في ${w}`,
+          propertyType,
+          wilaya: w,
+          commune: c,
+          price: Number(price) || 12000000,
+          rooms: Number(rooms) || 3,
+          area: Number(area) || 100,
+          description: description.trim() || "عقار للبيع بوثائق قانونية سليمة.",
+          phone: phone.trim(),
+          purpose: "بيع",
+          legalStatus,
+        },
+        queryClient,
+      );
+
+      setIsSubmitting(false);
+      toast.success("تم نشر عقار البيع بنجاح وأصبح متاحاً فوراً في ركن البيع والشراء!");
+      setSubmitted(true);
     } else {
       const res = await executeCreateProperty(
         {
@@ -124,6 +150,7 @@ function Publish() {
           area: Number(area) || 85,
           description: description.trim() || "عقار مجهز ونظيف متاح للإيجار.",
           phone: phone.trim(),
+          purpose: "كراء",
         },
         queryClient,
       );
@@ -140,7 +167,9 @@ function Publish() {
         title={
           rentalMode === "temporary"
             ? "انشر شقة للكراء المؤقت (24 ساعة / باليوم)"
-            : "انشر عقارك للإيجار الدائم"
+            : rentalMode === "sale"
+              ? "انشر عقاراً للبيع والشراء النهائي"
+              : "انشر عقارك للإيجار الدائم"
         }
         sub="النشر مجاني وتلقائي، ورقم هاتفك يبقى مخفيًا ومشفرًا حتى إتمام الصفقة وموافقة الإدارة."
       />
@@ -153,7 +182,9 @@ function Publish() {
           <p className="mt-2 text-sm text-muted-foreground">
             {rentalMode === "temporary"
               ? "تم نشر شقتك في قسم الكراء المؤقت، وتظهر الآن تلقائياً لجميع الزوار والباحثين عن إقامة بدون حاجة للانتظار."
-              : "تم نشر عقارك بنجاح ويستطيع الآن جميع المستخدمين تصفحه ورؤيته، بينما يظل رقم هاتفك محميًا ومخفيًا لحمايتك."}
+              : rentalMode === "sale"
+                ? "تم نشر عقارك في ركن البيع والشراء النهائي، ويستطيع المشترون الآن الاطلاع على المواصفات والوثائق القانونية."
+                : "تم نشر عقارك بنجاح ويستطيع الآن جميع المستخدمين تصفحه ورؤيته، بينما يظل رقم هاتفك محميًا ومخفيًا لحمايتك."}
             <br />
             رقم هاتفك المسجل: (
             <span dir="ltr" className="font-mono font-bold text-primary">
@@ -168,6 +199,13 @@ function Publish() {
                 className="rounded-lg bg-gold px-6 py-2.5 text-sm font-black text-deep shadow-md hover:brightness-105 transition"
               >
                 مشاهدة الشقة في قسم الكراء المؤقت ←
+              </Link>
+            ) : rentalMode === "sale" ? (
+              <Link
+                to="/sales"
+                className="rounded-lg bg-amber-500 hover:bg-amber-600 px-6 py-2.5 text-sm font-bold text-slate-950 shadow hover:opacity-90 transition"
+              >
+                مشاهدة في ركن البيع والشراء ←
               </Link>
             ) : (
               <Link
@@ -195,37 +233,49 @@ function Publish() {
           onSubmit={handleSubmit}
           className="mx-auto -mt-6 grid max-w-3xl gap-4 rounded-2xl bg-card p-6 shadow-card md:grid-cols-2"
         >
-          {/* Choice of Rental Category */}
+          {/* Choice of Rental/Sale Category */}
           <div className="md:col-span-2">
-            <label className="mb-2 block text-xs font-bold text-foreground">نوع نظام الكراء:</label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="mb-2 block text-xs font-bold text-foreground">
+              حدد ركن العقار المطلوب:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => setRentalMode("standard")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-3.5 text-xs font-bold transition cursor-pointer ${
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-bold transition cursor-pointer ${
                   rentalMode === "standard"
-                    ? "border-primary bg-primary/10 text-primary shadow-sm"
-                    : "border-border bg-card text-muted-foreground hover:bg-secondary"
+                    ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-500/20"
                 }`}
               >
                 <Building2 size={16} />
-                <span>إيجار دائم (شهري / سنوي)</span>
+                <span>1. كراء دائم (شهري/سنوي)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setRentalMode("temporary")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-3.5 text-xs font-bold transition cursor-pointer ${
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-bold transition cursor-pointer ${
                   rentalMode === "temporary"
-                    ? "border-gold bg-gold/10 text-gold shadow-sm"
-                    : "border-border bg-card text-muted-foreground hover:bg-secondary"
+                    ? "border-amber-500 bg-amber-500 text-slate-950 font-black shadow-sm"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20"
                 }`}
               >
-                <Clock size={16} className="text-gold" />
-                <span>كراء شقق مؤقتة (باليوم / 24 ساعة)</span>
-                <span className="rounded-full bg-gold/20 px-1.5 py-0.2 text-[10px] text-gold font-black">
-                  مطلوب
-                </span>
+                <Clock size={16} />
+                <span>2. كراء مؤقت (24 سا/يومي)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRentalMode("sale")}
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-bold transition cursor-pointer ${
+                  rentalMode === "sale"
+                    ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                    : "border-blue-500/30 bg-blue-600/10 text-blue-900 dark:text-blue-200 hover:bg-blue-600/20"
+                }`}
+              >
+                <Tag size={16} />
+                <span>3. بيع نهائي (عقد موثق)</span>
               </button>
             </div>
           </div>
@@ -286,8 +336,39 @@ function Publish() {
                 />
               </Field>
             </>
+          ) : rentalMode === "sale" ? (
+            <>
+              <Field label="سعر البيع الإجمالي (د.ج)">
+                <input
+                  type="number"
+                  required
+                  min={100000}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className={inputCls}
+                  placeholder="مثال: 14500000"
+                />
+              </Field>
+
+              <Field label="الوضع القانوني والوثائق">
+                <select
+                  value={legalStatus}
+                  onChange={(e) => setLegalStatus(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="عقد توثيقي + دفتر عقاري">
+                    عقد توثيقي + دفتر عقاري (سند فردي)
+                  </option>
+                  <option value="عقد توثيقي فردي">عقد توثيقي فردي</option>
+                  <option value="دفتر عقاري مستقل">دفتر عقاري مستقل</option>
+                  <option value="شهادة حيازة ومطابقة">شهادة حيازة ومطابقة</option>
+                  <option value="عقد ملكية مشاع موثق">عقد ملكية مشاع موثق</option>
+                  <option value="قرار تنازل رسمي">قرار تنازل رسمي</option>
+                </select>
+              </Field>
+            </>
           ) : (
-            <Field label="السعر (د.ج)">
+            <Field label="السعر الشهري (د.ج)">
               <input
                 type="number"
                 required

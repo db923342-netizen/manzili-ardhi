@@ -48,6 +48,11 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      if (url.pathname === "/api/contacts/reveal" && request.method === "POST") {
+        const { handleRevealContact } = await import("./server/contacts");
+        return await handleRevealContact(request);
+      }
+
       if (
         (url.pathname === "/api/gemini/chat" || url.pathname === "/api/gemini/advisor") &&
         request.method === "POST"
