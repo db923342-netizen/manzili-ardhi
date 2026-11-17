@@ -1,4 +1,3 @@
-// @ts-nocheck -- legacy module typed against an older schema; pending rewrite
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import hero from "@/assets/hero.jpg";
@@ -553,133 +552,137 @@ export const defaultSaleRequests: RentalRequest[] = [
 // ==========================================
 // TanStack Query Definitions
 // ==========================================
+async function fetchProperties(): Promise<Property[]> {
+  const deleted = getDeletedPropertyIds();
+
+  // 1. Fetch real properties from Firestore (Multi-user cross-device shared database)
+  let firestoreProps: Property[] = [];
+  try {
+    const { getPropertiesFromFirestore } = await import("./firebase");
+    const fbProps = await getPropertiesFromFirestore();
+    if (fbProps && fbProps.length > 0) {
+      firestoreProps = fbProps.map(toPropertyFromFirestore);
+    }
+  } catch (err) {
+    console.warn("Could not fetch properties from Firestore:", err);
+  }
+
+  // 2. Fetch real properties from Supabase
+  let remoteProps: Property[] = [];
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      remoteProps = data.map((r) => toProperty(r as Row));
+    }
+  } catch {
+    // Supabase error tolerated
+  }
+
+  // 3. Fetch locally published properties by users
+  let localProps: Property[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_properties");
+      if (raw) localProps = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+  }
+
+  // Combine: firestore first (shared real-time) + local + remote + defaults (excluding sales)
+  const combined: Property[] = [];
+  const seen = new Set<string>();
+
+  for (const p of [...firestoreProps, ...localProps, ...remoteProps, ...defaultProperties]) {
+    if (!seen.has(p.id) && !deleted.has(p.id) && p.purpose !== "بيع") {
+      seen.add(p.id);
+      combined.push(p);
+    }
+  }
+
+  // Sort by createdAt descending so newest published properties appear first for everyone
+  combined.sort((a, b) => {
+    const dateA = a.createdAt || "";
+    const dateB = b.createdAt || "";
+    return dateB.localeCompare(dateA);
+  });
+
+  return combined;
+}
+
 export const propertiesQuery = queryOptions({
   queryKey: ["public_properties"],
-  queryFn: async (): Promise<Property[]> => {
-    const deleted = getDeletedPropertyIds();
-
-    // 1. Fetch real properties from Firestore (Multi-user cross-device shared database)
-    let firestoreProps: Property[] = [];
-    try {
-      const { getPropertiesFromFirestore } = await import("./firebase");
-      const fbProps = await getPropertiesFromFirestore();
-      if (fbProps && fbProps.length > 0) {
-        firestoreProps = fbProps.map(toPropertyFromFirestore);
-      }
-    } catch (err) {
-      console.warn("Could not fetch properties from Firestore:", err);
-    }
-
-    // 2. Fetch real properties from Supabase
-    let remoteProps: Property[] = [];
-    try {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        remoteProps = data.map((r) => toProperty(r as Row));
-      }
-    } catch {
-      // Supabase error tolerated
-    }
-
-    // 3. Fetch locally published properties by users
-    let localProps: Property[] = [];
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem("manzili_local_properties");
-        if (raw) localProps = JSON.parse(raw);
-      } catch {
-        // ignore
-      }
-    }
-
-    // Combine: firestore first (shared real-time) + local + remote + defaults (excluding sales)
-    const combined: Property[] = [];
-    const seen = new Set<string>();
-
-    for (const p of [...firestoreProps, ...localProps, ...remoteProps, ...defaultProperties]) {
-      if (!seen.has(p.id) && !deleted.has(p.id) && p.purpose !== "بيع") {
-        seen.add(p.id);
-        combined.push(p);
-      }
-    }
-
-    // Sort by createdAt descending so newest published properties appear first for everyone
-    combined.sort((a, b) => {
-      const dateA = a.createdAt || "";
-      const dateB = b.createdAt || "";
-      return dateB.localeCompare(dateA);
-    });
-
-    return combined;
-  },
+  queryFn: fetchProperties,
 });
+
+async function fetchRentalRequests(): Promise<RentalRequest[]> {
+  const deleted = getDeletedRequestIds();
+
+  // 1. Fetch real rental requests from Firestore (Multi-user cross-device shared database)
+  let firestoreReqs: RentalRequest[] = [];
+  try {
+    const { getRentalRequestsFromFirestore } = await import("./firebase");
+    const fbReqs = await getRentalRequestsFromFirestore();
+    if (fbReqs && fbReqs.length > 0) {
+      firestoreReqs = fbReqs.map(toRequestFromFirestore);
+    }
+  } catch (err) {
+    console.warn("Could not fetch rental requests from Firestore:", err);
+  }
+
+  // 2. Fetch real requests from Supabase
+  let remoteReqs: RentalRequest[] = [];
+  try {
+    const { data, error } = await supabase
+      .from("rental_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      remoteReqs = data.map((r) => toRequest(r as Row));
+    }
+  } catch {
+    // Supabase error tolerated
+  }
+
+  // 3. Fetch locally published requests by users
+  let localReqs: RentalRequest[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("manzili_local_requests");
+      if (raw) localReqs = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+  }
+
+  const combined: RentalRequest[] = [];
+  const seen = new Set<string>();
+
+  for (const r of [...firestoreReqs, ...localReqs, ...remoteReqs, ...defaultRentalRequests]) {
+    if (!seen.has(r.id) && !deleted.has(r.id) && r.purpose !== "شراء") {
+      seen.add(r.id);
+      combined.push(r);
+    }
+  }
+
+  // Sort by createdAt / date descending so newest requests appear first for everyone
+  combined.sort((a, b) => {
+    const dateA = a.createdAt || a.date || "";
+    const dateB = b.createdAt || b.date || "";
+    return dateB.localeCompare(dateA);
+  });
+
+  return combined;
+}
 
 export const requestsQuery = queryOptions({
   queryKey: ["public_rental_requests"],
-  queryFn: async (): Promise<RentalRequest[]> => {
-    const deleted = getDeletedRequestIds();
-
-    // 1. Fetch real rental requests from Firestore (Multi-user cross-device shared database)
-    let firestoreReqs: RentalRequest[] = [];
-    try {
-      const { getRentalRequestsFromFirestore } = await import("./firebase");
-      const fbReqs = await getRentalRequestsFromFirestore();
-      if (fbReqs && fbReqs.length > 0) {
-        firestoreReqs = fbReqs.map(toRequestFromFirestore);
-      }
-    } catch (err) {
-      console.warn("Could not fetch rental requests from Firestore:", err);
-    }
-
-    // 2. Fetch real requests from Supabase
-    let remoteReqs: RentalRequest[] = [];
-    try {
-      const { data, error } = await supabase
-        .from("rental_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        remoteReqs = data.map((r) => toRequest(r as Row));
-      }
-    } catch {
-      // Supabase error tolerated
-    }
-
-    // 3. Fetch locally published requests by users
-    let localReqs: RentalRequest[] = [];
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem("manzili_local_requests");
-        if (raw) localReqs = JSON.parse(raw);
-      } catch {
-        // ignore
-      }
-    }
-
-    const combined: RentalRequest[] = [];
-    const seen = new Set<string>();
-
-    for (const r of [...firestoreReqs, ...localReqs, ...remoteReqs, ...defaultRentalRequests]) {
-      if (!seen.has(r.id) && !deleted.has(r.id) && r.purpose !== "شراء") {
-        seen.add(r.id);
-        combined.push(r);
-      }
-    }
-
-    // Sort by createdAt / date descending so newest requests appear first for everyone
-    combined.sort((a, b) => {
-      const dateA = a.createdAt || a.date || "";
-      const dateB = b.createdAt || b.date || "";
-      return dateB.localeCompare(dateA);
-    });
-
-    return combined;
-  },
+  queryFn: fetchRentalRequests,
 });
 
 export let lastSalePropertiesError: string | null = null;
@@ -699,7 +702,7 @@ export const salesPropertiesQuery = queryOptions({
         authUserId = authData.user.id;
         isAdmin =
           authData.user.email === "db923342@gmail.com" ||
-          authData.user.user_metadata?.role === "admin";
+          authData.user.user_metadata?.["role"] === "admin";
       }
     } catch {
       // ignore
@@ -775,7 +778,7 @@ export const salesRequestsQuery = queryOptions({
         authUserId = authData.user.id;
         isAdmin =
           authData.user.email === "db923342@gmail.com" ||
-          authData.user.user_metadata?.role === "admin";
+          authData.user.user_metadata?.["role"] === "admin";
       }
     } catch {
       // ignore
@@ -885,7 +888,7 @@ export async function executeCreateSaleDeal(input: {
     const { data: authData } = await supabase.auth.getUser();
     const isAdmin =
       authData?.user?.email === "db923342@gmail.com" ||
-      authData?.user?.user_metadata?.role === "admin";
+      authData?.user?.user_metadata?.["role"] === "admin";
 
     if (!isAdmin) {
       return { success: false, error: "إنشاء صفقات البيع والشراء متاح للمدير فقط." };
@@ -927,7 +930,7 @@ export async function executeUpdateSaleDeal(
     const { data: authData } = await supabase.auth.getUser();
     const isAdmin =
       authData?.user?.email === "db923342@gmail.com" ||
-      authData?.user?.user_metadata?.role === "admin";
+      authData?.user?.user_metadata?.["role"] === "admin";
 
     if (!isAdmin) {
       return { success: false, error: "تعديل صفقات البيع متاح للمدير فقط." };
@@ -951,7 +954,7 @@ export async function executeDeleteSaleDeal(
     const { data: authData } = await supabase.auth.getUser();
     const isAdmin =
       authData?.user?.email === "db923342@gmail.com" ||
-      authData?.user?.user_metadata?.role === "admin";
+      authData?.user?.user_metadata?.["role"] === "admin";
 
     if (!isAdmin) {
       return { success: false, error: "حذف صفقات البيع متاح للمدير فقط." };
@@ -969,16 +972,12 @@ export async function executeDeleteSaleDeal(
 
 export const adminPropertiesQuery = queryOptions({
   queryKey: ["admin_properties"],
-  queryFn: async (): Promise<Property[]> => {
-    return propertiesQuery.queryFn();
-  },
+  queryFn: fetchProperties,
 });
 
 export const adminRequestsQuery = queryOptions({
   queryKey: ["admin_rental_requests"],
-  queryFn: async (): Promise<RentalRequest[]> => {
-    return requestsQuery.queryFn();
-  },
+  queryFn: fetchRentalRequests,
 });
 
 export type AdminUser = {
@@ -1155,7 +1154,7 @@ export const adminUsersQuery = queryOptions({
       if (!error && profiles && profiles.length > 0) {
         for (let i = 0; i < profiles.length; i++) {
           const u = profiles[i];
-          if (deleted.has(u.id)) continue;
+          if (!u || deleted.has(u.id)) continue;
           const count = propCountMap.get(u.id) || 0;
           userMap.set(u.id, {
             id: u.id,
@@ -1165,7 +1164,7 @@ export const adminUsersQuery = queryOptions({
             role: u.role === "admin" ? "مدير" : "مستخدم",
             s: "نشط",
             wilaya: "الجزائر",
-            createdAt: u.created_at ? u.created_at.split("T")[0] : "2024-05-01",
+            createdAt: u.created_at ? (u.created_at.split("T")[0] ?? "2024-05-01") : "2024-05-01",
             listingsCount: count,
             hasPublished: count > 0,
           });
@@ -1192,7 +1191,7 @@ export const adminUsersQuery = queryOptions({
           s: existing?.s || "نشط",
           wilaya: fu.wilaya || existing?.wilaya || "الجزائر",
           createdAt: fu.createdAt
-            ? fu.createdAt.split("T")[0]
+            ? (fu.createdAt.split("T")[0] ?? "2024-05-01")
             : existing?.createdAt || "2024-05-01",
           listingsCount: count,
           hasPublished: count > 0,
@@ -1212,15 +1211,19 @@ export const adminUsersQuery = queryOptions({
         const count = propCountMap.get(authUser.id) || 0;
         userMap.set(authUser.id, {
           id: authUser.id,
-          n: (meta.full_name as string) || (isAdmin ? "المدير العام (أدمن المنصة)" : "مستخدم مسجل"),
+          n:
+            (meta["full_name"] as string) ||
+            (isAdmin ? "المدير العام (أدمن المنصة)" : "مستخدم مسجل"),
           e: authUser.email || "user@manzili.dz",
           phone:
-            (meta.phone as string) ||
+            (meta["phone"] as string) ||
             (isAdmin ? "0550 00 11 22" : getDeterministicPhone(authUser.id, "0550")),
           role: isAdmin ? "مدير" : "مستخدم",
           s: "نشط",
           wilaya: "الجزائر",
-          createdAt: authUser.created_at ? authUser.created_at.split("T")[0] : "2024-05-01",
+          createdAt: authUser.created_at
+            ? (authUser.created_at.split("T")[0] ?? "2024-05-01")
+            : "2024-05-01",
           listingsCount: count,
           hasPublished: count > 0,
         });
@@ -1835,7 +1838,7 @@ export async function executeCreateProperty(
     if (authData?.user) {
       authUserId = authData.user.id;
       authUserEmail = authData.user.email || "";
-      authUserName = (authData.user.user_metadata?.full_name as string) || "مستخدم مسجل";
+      authUserName = (authData.user.user_metadata?.["full_name"] as string) || "مستخدم مسجل";
     }
   } catch {
     // optional auth
@@ -2022,7 +2025,7 @@ export async function executeCreateProperty(
   return {
     success: Boolean(createdId) || !insertError,
     id: finalId,
-    error: insertError || undefined,
+    ...(insertError ? { error: insertError } : {}),
   };
 }
 
@@ -2052,7 +2055,7 @@ export async function executeCreateRequest(
     const { data: authData } = await supabase.auth.getUser();
     if (authData?.user) {
       authUserId = authData.user.id;
-      authUserName = (authData.user.user_metadata?.full_name as string) || "مستخدم مسجل";
+      authUserName = (authData.user.user_metadata?.["full_name"] as string) || "مستخدم مسجل";
     }
   } catch {
     // optional auth
@@ -2229,7 +2232,7 @@ export async function executeCreateRequest(
   return {
     success: Boolean(createdId) || !insertError,
     id: finalId,
-    error: insertError || undefined,
+    ...(insertError ? { error: insertError } : {}),
   };
 }
 

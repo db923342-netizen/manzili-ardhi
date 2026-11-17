@@ -16,6 +16,7 @@ import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { GeminiAdvisorFloatingButton } from "../components/GeminiAdvisorModal";
+import { WelcomeModal } from "../components/WelcomeModal";
 
 function NotFoundComponent() {
   return (
@@ -115,7 +116,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "32x32" },
@@ -163,6 +164,7 @@ function RootComponent() {
         <Outlet />
       </main>
       <Footer />
+      <WelcomeModal />
       <GeminiAdvisorFloatingButton />
       <Toaster richColors position="top-center" dir="rtl" />
     </QueryClientProvider>

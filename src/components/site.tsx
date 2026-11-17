@@ -16,6 +16,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn, maskPhoneNumbers } from "@/lib/utils";
+import { openWelcomeModal } from "./WelcomeModal";
 import {
   formatDA,
   formatPublishTime,
@@ -284,6 +285,13 @@ export function Footer() {
         <div className="flex flex-col gap-2 opacity-85">
           <Link to="/sales">ركن البيع والشراء</Link>
           <Link to="/register">إنشاء حساب</Link>
+          <button
+            type="button"
+            onClick={openWelcomeModal}
+            className="w-fit text-right hover:text-gold transition cursor-pointer"
+          >
+            رسالة الترحيب ودليل المنصة
+          </button>
         </div>
       </div>
 

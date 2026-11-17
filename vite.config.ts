@@ -53,6 +53,10 @@ function apiGeminiDevPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [apiGeminiDevPlugin()],
+  nitro: {
+    // Prevent Nitro from auto-detecting root index.html as a static template and bypassing SSR / API routes
+    renderer: false,
+  } as Record<string, unknown>,
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

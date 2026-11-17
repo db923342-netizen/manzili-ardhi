@@ -29,6 +29,7 @@ export type Property = {
   image: string;
   publishedAt?: string;
   createdAt?: string;
+  owner_id?: string | undefined;
 };
 
 export type RentalRequest = {
@@ -45,6 +46,8 @@ export type RentalRequest = {
   contactPhone?: string;
   date: string;
   createdAt?: string;
+  status?: "نشط" | "قيد المراجعة";
+  buyer_id?: string | undefined;
 };
 
 export function formatPublishTime(dateStr?: string): string {

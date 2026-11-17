@@ -90,7 +90,7 @@ export async function handleRevealContact(request: Request): Promise<Response> {
     const isCallerAdmin =
       callerEmail === ADMIN_EMAIL ||
       callerEmail.includes("admin@manzili") ||
-      callerUser.user_metadata?.role === "admin";
+      callerUser.user_metadata?.["role"] === "admin";
 
     // 3. Query Listing and Deal Status using server-side admin client
     let isOwner = false;
@@ -121,17 +121,12 @@ export async function handleRevealContact(request: Request): Promise<Response> {
       if (!prop) {
         const { data: saleProp } = await dbClient
           .from("sale_properties")
-          .select("id, owner_id, owner_phone")
+          .select("id, owner_id")
           .eq("id", listingId)
           .maybeSingle();
 
-        if (saleProp) {
-          if (saleProp.owner_id === callerId) {
-            isOwner = true;
-          }
-          if (saleProp.owner_phone) {
-            revealedPhone = saleProp.owner_phone;
-          }
+        if (saleProp && saleProp.owner_id === callerId) {
+          isOwner = true;
         }
       }
 
@@ -154,7 +149,7 @@ export async function handleRevealContact(request: Request): Promise<Response> {
           const { data: saleDeal } = await dbClient
             .from("sale_deals")
             .select("id, contacts_released, status, buyer_id, seller_id")
-            .eq("property_id", listingId)
+            .eq("sale_property_id", listingId)
             .eq("contacts_released", true)
             .maybeSingle();
 
@@ -188,7 +183,7 @@ export async function handleRevealContact(request: Request): Promise<Response> {
       if (!reqItem) {
         const { data: purReq } = await dbClient
           .from("purchase_requests")
-          .select("id, buyer_id, buyer_phone")
+          .select("id, buyer_id, contact_phone")
           .eq("id", listingId)
           .maybeSingle();
 
@@ -196,8 +191,8 @@ export async function handleRevealContact(request: Request): Promise<Response> {
           if (purReq.buyer_id === callerId) {
             isOwner = true;
           }
-          if (purReq.buyer_phone) {
-            revealedPhone = purReq.buyer_phone;
+          if (purReq.contact_phone) {
+            revealedPhone = purReq.contact_phone;
           }
         }
       }
@@ -212,6 +207,23 @@ export async function handleRevealContact(request: Request): Promise<Response> {
 
         if (deal && deal.contacts_released) {
           isDealApproved = true;
+        }
+
+        if (!isDealApproved) {
+          const { data: saleDeal } = await dbClient
+            .from("sale_deals")
+            .select("id, contacts_released, status, buyer_id, seller_id")
+            .eq("purchase_request_id", listingId)
+            .eq("contacts_released", true)
+            .maybeSingle();
+
+          if (
+            saleDeal &&
+            saleDeal.contacts_released &&
+            (saleDeal.buyer_id === callerId || saleDeal.seller_id === callerId)
+          ) {
+            isDealApproved = true;
+          }
         }
       }
     }
@@ -244,8 +256,9 @@ export async function handleRevealContact(request: Request): Promise<Response> {
         const privateDoc = await getDoc(doc(db, privateCollection, listingId));
 
         if (privateDoc.exists()) {
-          const pData = privateDoc.data();
-          phoneToReturn = pData.phone || pData.contactPhone || null;
+          const pData = privateDoc.data() as Record<string, unknown>;
+          const raw = pData["phone"] || pData["contactPhone"];
+          phoneToReturn = typeof raw === "string" ? raw : null;
         }
 
         // Fallback to main document if migrated
@@ -253,8 +266,9 @@ export async function handleRevealContact(request: Request): Promise<Response> {
           const mainCollection = effectiveType === "property" ? "properties" : "rental_requests";
           const mainDoc = await getDoc(doc(db, mainCollection, listingId));
           if (mainDoc.exists()) {
-            const mData = mainDoc.data();
-            phoneToReturn = mData.phone || mData.contactPhone || null;
+            const mData = mainDoc.data() as Record<string, unknown>;
+            const raw = mData["phone"] || mData["contactPhone"];
+            phoneToReturn = typeof raw === "string" ? raw : null;
           }
         }
       } catch (err) {

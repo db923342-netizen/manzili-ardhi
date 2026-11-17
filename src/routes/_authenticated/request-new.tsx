@@ -121,7 +121,7 @@ function NewRequest() {
             ) : (
               <Link
                 to="/search"
-                search={{ tab: "requests" }}
+                search={{ section: "requests" }}
                 className="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow hover:opacity-90 transition"
               >
                 مشاهدة طلبك في ركن الكراء الدائم ←

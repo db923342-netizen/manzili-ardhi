@@ -59,7 +59,13 @@ const MIME_TYPES = {
 
 function tryServeStatic(urlPath) {
   const rawPath = urlPath.split("?")[0];
-  const cleanPath = path.normalize(decodeURIComponent(rawPath));
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(rawPath);
+  } catch {
+    return null;
+  }
+  const cleanPath = path.normalize(decodedPath);
   if (!cleanPath || cleanPath === "/" || cleanPath === "." || cleanPath.startsWith("..") || cleanPath.endsWith("/")) {
     return null;
   }
@@ -92,32 +98,40 @@ function tryServeStatic(urlPath) {
 
 export default {
   async fetch(request) {
+    const url = new URL(request.url, "http://localhost:3000");
+    const isApiRequest = url.pathname.startsWith("/api/");
+    const isPageNavigation = !isApiRequest && (request.method === "GET" || request.method === "HEAD");
+
     try {
       // srvx NodeRequest expects writable ip
-      Object.defineProperty(request, "ip", { value: undefined, writable: true, configurable: true });
-
-      const url = new URL(request.url, "http://localhost:3000");
+      try {
+        Object.defineProperty(request, "ip", { value: undefined, writable: true, configurable: true });
+      } catch {
+        // Ignore if ip property is non-configurable in this runtime
+      }
 
       // 1. Static asset serving (e.g. /manifest.json, /assets/*.js, images)
-      const staticResponse = tryServeStatic(url.pathname);
-      if (staticResponse) {
-        return staticResponse;
+      if (isPageNavigation) {
+        const staticResponse = tryServeStatic(url.pathname);
+        if (staticResponse) {
+          return staticResponse;
+        }
       }
 
       // 2. Delegate HTML / API / SSR requests to TanStack Start SSR
-      const env = {};
+      const env = { ...process.env };
       const ctx = { waitUntil() {}, passThroughOnException() {}, props: {} };
       const handler = ssrHandler.default || ssrHandler;
       const ssrResponse = await handler.fetch(request, env, ctx);
 
-      // If SSR response is valid and non-error, return it
-      if (ssrResponse && ssrResponse.status < 500) {
+      // If SSR response is valid and non-error, or if this is an API route, return it as-is
+      if ((ssrResponse && ssrResponse.status < 500) || isApiRequest) {
         return ssrResponse;
       }
 
-      // 3. Fallback to prerendered index.html for navigation if SSR returned an error
+      // 3. Fallback to prerendered index.html only for GET/HEAD page navigation if SSR returned a 500
       const indexPath = path.join(distDir, "index.html");
-      if (fs.existsSync(indexPath)) {
+      if (isPageNavigation && fs.existsSync(indexPath)) {
         return new Response(fs.readFileSync(indexPath), {
           status: 200,
           headers: { "content-type": "text/html; charset=utf-8" },
@@ -127,8 +141,14 @@ export default {
       return ssrResponse;
     } catch (err) {
       console.error("[server.js error]", err);
+      if (isApiRequest) {
+        return Response.json(
+          { success: false, error: "Internal Server Error" },
+          { status: 500 },
+        );
+      }
       const indexPath = path.join(distDir, "index.html");
-      if (fs.existsSync(indexPath)) {
+      if (isPageNavigation && fs.existsSync(indexPath)) {
         return new Response(fs.readFileSync(indexPath), {
           status: 200,
           headers: { "content-type": "text/html; charset=utf-8" },

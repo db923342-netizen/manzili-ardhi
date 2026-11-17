@@ -614,7 +614,7 @@ function Index() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {salesList.data?.slice(0, 3).map((prop) => (
+            {salesList.slice(0, 3).map((prop) => (
               <div
                 key={prop.id}
                 className="rounded-2xl border border-blue-500/20 bg-card p-4 shadow-sm hover:shadow-lg hover:border-blue-500/50 transition flex flex-col justify-between"
@@ -626,7 +626,7 @@ function Index() {
                     </span>
                     <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <BadgeCheck size={12} />
-                      {prop.legalStatus ?? "عقد توثيقي"}
+                      {prop.legalStatus || "عقد توثيقي"}
                     </span>
                   </div>
                   <h3 className="font-bold text-sm text-foreground line-clamp-1">{prop.title}</h3>
@@ -638,7 +638,7 @@ function Index() {
                       المساحة: <b>{prop.area} م²</b>
                     </span>
                     <span>
-                      النوع: <b>{prop.propertyType}</b>
+                      النوع: <b>{prop.type}</b>
                     </span>
                   </div>
                   <div className="mt-2 text-sm font-black text-blue-700 dark:text-blue-400">
@@ -646,7 +646,7 @@ function Index() {
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{prop.ownerName}</span>
+                  <span className="text-xs text-muted-foreground">{prop.owner}</span>
                   <Link
                     to="/sales"
                     search={{ section: "offers" }}

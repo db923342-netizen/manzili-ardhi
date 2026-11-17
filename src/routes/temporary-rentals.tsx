@@ -66,15 +66,16 @@ export const Route = createFileRoute("/temporary-rentals")({
   validateSearch: (
     s: Record<string, unknown>,
   ): {
-    section?: "offers" | "requests";
-    w?: string;
-    c?: string;
-    type?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    guests?: string;
+    section?: "offers" | "requests" | undefined;
+    w?: string | undefined;
+    c?: string | undefined;
+    type?: string | undefined;
+    minPrice?: string | undefined;
+    maxPrice?: string | undefined;
+    guests?: string | undefined;
   } => ({
-    section: s["section"] === "requests" ? "requests" : "offers",
+    section:
+      s["section"] === "requests" ? "requests" : s["section"] === "offers" ? "offers" : undefined,
     w: typeof s["w"] === "string" ? s["w"] : undefined,
     c: typeof s["c"] === "string" ? s["c"] : undefined,
     type: typeof s["type"] === "string" ? s["type"] : undefined,
@@ -385,7 +386,7 @@ export function TemporaryRentalsPage() {
       serviceFee,
       grandTotal,
       status: "قيد التأكيد",
-      specialNotes: specialNotes.trim() || undefined,
+      ...(specialNotes.trim() ? { specialNotes: specialNotes.trim() } : {}),
       createdAt: new Date().toISOString(),
     };
 
@@ -418,7 +419,7 @@ export function TemporaryRentalsPage() {
         serviceFee,
         grandTotal,
         status: "قيد التأكيد",
-        specialNotes: specialNotes.trim() || undefined,
+        ...(specialNotes.trim() ? { specialNotes: specialNotes.trim() } : {}),
       });
     } catch {
       // ignore

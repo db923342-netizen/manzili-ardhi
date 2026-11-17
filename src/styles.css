@@ -59,6 +59,7 @@
   --color-deep-foreground: var(--deep-foreground);
   --font-sans: "Tajawal", sans-serif;
   --font-display: "Cairo", sans-serif;
+  --font-calligraphy: "Amiri", "Cairo", serif;
   --shadow-card: var(--shadow-card);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);

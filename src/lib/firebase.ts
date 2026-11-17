@@ -1,4 +1,3 @@
-// @ts-nocheck -- legacy module typed against an older schema; pending rewrite
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getAuth,
@@ -167,7 +166,7 @@ export async function savePropertyToFirestore(
     area: data.area ?? 0,
     rooms: data.rooms ?? 0,
     description: data.description ?? "",
-    images: data.images,
+    ...(data.images !== undefined ? { images: data.images } : {}),
     phone: "", // Redacted from public document
     userId: data.userId || "user",
     userName: data.userName || "صاحب العقار",
@@ -440,13 +439,13 @@ export async function getUsersFromFirestore(): Promise<FirestoreUserRecord[]> {
       const data = d.data();
       return {
         id: d.id,
-        email: (data.email as string) || "",
-        displayName: (data.displayName as string) || (data.name as string) || "مستخدم مسجل",
-        phone: (data.phone as string) || "",
-        role: (data.role as string) || "user",
-        createdAt: (data.createdAt as string) || "",
-        wilaya: (data.wilaya as string) || "الجزائر",
-        photoURL: (data.photoURL as string) || "",
+        email: (data["email"] as string) || "",
+        displayName: (data["displayName"] as string) || (data["name"] as string) || "مستخدم مسجل",
+        phone: (data["phone"] as string) || "",
+        role: (data["role"] as string) || "user",
+        createdAt: (data["createdAt"] as string) || "",
+        wilaya: (data["wilaya"] as string) || "الجزائر",
+        photoURL: (data["photoURL"] as string) || "",
       };
     });
   } catch (err) {

@@ -47,7 +47,7 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      const url = new URL(request.url);
+      const url = new URL(request.url, "http://localhost:3000");
       if (url.pathname === "/api/contacts/reveal" && request.method === "POST") {
         const { handleRevealContact } = await import("./server/contacts");
         return await handleRevealContact(request);

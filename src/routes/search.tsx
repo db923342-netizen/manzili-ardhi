@@ -28,12 +28,13 @@ export const Route = createFileRoute("/search")({
   validateSearch: (
     s: Record<string, unknown>,
   ): {
-    section?: "offers" | "requests";
+    section?: "offers" | "requests" | undefined;
     w?: string | undefined;
     c?: string | undefined;
     t?: string | undefined;
   } => ({
-    section: s["section"] === "requests" ? "requests" : "offers",
+    section:
+      s["section"] === "requests" ? "requests" : s["section"] === "offers" ? "offers" : undefined,
     w: typeof s["w"] === "string" ? s["w"] : undefined,
     c: typeof s["c"] === "string" ? s["c"] : undefined,
     t: typeof s["t"] === "string" ? s["t"] : undefined,

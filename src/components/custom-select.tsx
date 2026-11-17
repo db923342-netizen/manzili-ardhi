@@ -64,6 +64,7 @@ export function CustomSelect({
       }, 50);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isOpen, searchable]);
 
   const selectedOption = useMemo(() => options.find((o) => o.value === value), [options, value]);
